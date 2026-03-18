@@ -40,6 +40,8 @@ At a high level, the framework does four things:
 
 So: **no hand-written test list per endpoint.** The spec is the source of truth; the framework turns it into executable tests and runs them. If the spec is updated, re-running the framework exercises the new or changed endpoints automatically.
 
+**Static vs generated tests:** The only **static** tests in the repo are the **manual** tests under `tests/test_manual/` (e.g. `test_root.py`). The **generated** tests are **not** stored as test case files on disk. They are created **on the fly** from the spec plus discovery data, live **in memory**, and are then run—either by pytest (which builds one parametrized test per case at collection time) or by the CLI (which runs the case list in a loop). The only file under `tests/test_generated/` is `test_from_spec.py`; that file is the pytest hook that invokes the generator and parametrizes tests—it does not contain a static list of test cases.
+
 ---
 
 ## 3. Key concepts
@@ -75,6 +77,35 @@ The **generator** walks every path and method in the spec. For each operation it
 - **Negative case:** Where the spec documents 404 or 422, it adds a case that uses an **invalid** value (e.g. `invalid_nonexistent_xyz`) for a path parameter, expecting 404 or 422.
 
 Each **case** is a small dictionary: `path`, `params`, `expected_status`, `operation_id`, `summary`, `tag`, and whether it’s negative. No test code is written by hand for these; they come from the spec + discovery.
+
+**Sample generated cases** (the exact values depend on discovery; this is what one positive and one negative might look like in memory). Here, a **terms** endpoint shows how discovery data is used—the path is built from `model_handle`, `model_version`, `node_handle`, `prop_handle`, and `term_value` in `test_data`:
+
+```python
+# Positive case: GET term by value — path filled from discovery (model_handle, model_version, node_handle, prop_handle, term_value)
+{
+    "path": "/model/C3DC/version/1.4.0/node/diagnosis/property/tumor_stage_clinical_m/term/M1c",
+    "params": None,
+    "expected_status": 200,
+    "operation_id": "get_term_by_value",
+    "summary": "Get term by value",
+    "tag": "terms",
+    "negative": False,
+    "response_schema_ref": "Term",
+}
+
+# Negative case: same path template but with invalid path params — expects 404
+{
+    "path": "/model/invalid_nonexistent_xyz/version/invalid_nonexistent_xyz/node/invalid_nonexistent_xyz/property/invalid_nonexistent_xyz/term/invalid_nonexistent_xyz",
+    "params": None,
+    "expected_status": 404,
+    "operation_id": "get_term_by_value",
+    "summary": "Get term by value",
+    "tag": "terms",
+    "negative": True,
+}
+```
+
+The runner sends `GET base_url + path` with the given `params`, then asserts that the response status equals `expected_status`.
 
 ### 3.4 Runners and reporters
 
@@ -121,7 +152,7 @@ sts-test-framework-agent/
 │   │   └── test_root.py
 │   └── test_generated/        # Dynamic tests: one test per generated case
 │       └── test_from_spec.py   # Uses pytest_generate_tests to parametrize by case
-├── reports/                   # Default output for report.json and report.html
+├── reports/                   # Default output for timestamped report_*.json and report_*.html
 └── docs/
     ├── ONBOARDING.md          # This document
     └── FRAMEWORK.md           # Short pointer to this doc
@@ -195,7 +226,7 @@ It is a **template** that lists the variable names and shows example values (com
 | `STS_BASE_URL`   | Base URL of the STS v2 API (used for all requests)                                             | `https://sts.cancer.gov/v2`    |
 | `STS_QA_URL`     | QA base URL (used only if you add code that switches to QA for certain tests)                  | `https://sts-qa.cancer.gov/v2` |
 | `STS_SSL_VERIFY` | Set to `false` to disable SSL certificate verification (e.g. local/dev with self-signed certs) | `true`                         |
-| `REPORT_DIR`     | Directory where the CLI writes `report.json` and `report.html`                                 | `reports`                      |
+| `REPORT_DIR`     | Directory where the CLI writes timestamped `report_YYYY-MM-DDTHH-MM-SS.json` and `.html` (each run gets its own files) | `reports`                      |
 
 
 If you don’t set these, the defaults are used. The framework needs **network access** to the STS server for discovery and for running the tests.
@@ -259,7 +290,7 @@ The framework can be run in **two ways**. Both use the same spec, discovery, and
 |                | **pytest**                                                                                                                                                 | **CLI**                                                                                                                                |
 | -------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
 | **What it is** | Standard Python test runner; each generated case is one pytest test.                                                                                       | A standalone script that runs the framework and writes report files.                                                                   |
-| **Output**     | Pytest’s usual pass/fail output (and any pytest plugins, e.g. html). Does *not* write the framework’s `report.json` / `report.html` unless you add a hook. | Always writes `report.json` and `report.html` to the folder you choose.                                                                |
+| **Output**     | Pytest’s usual pass/fail output (and any pytest plugins, e.g. html). Does *not* write the framework’s report files unless you add a hook. | Always writes timestamped `report_*.json` and `report_*.html` to the folder you choose (each run gets its own pair).                    |
 | **Best for**   | Day-to-day development, debugging, running a single test or subset, IDE integration.                                                                       | Getting the framework’s reports every time, scripts/cron/CI, or using options like `--tags` / `--no-negative` without touching pytest. |
 
 
@@ -317,14 +348,90 @@ python -m sts_test_framework.cli --no-negative
 
 When any test fails, the CLI exits with code 1 so CI can detect failure.
 
-### 6.6 What happens when you run
+### 6.6 What happens when you run (under the hood)
 
-1. **Load spec** – Read `spec/v2.yaml` (or the path you gave).
-2. **Create client** – HTTP client with the chosen base URL.
-3. **Discovery** – GET models → nodes → properties → terms, GET tags; build `test_data`.
-4. **Generate cases** – For each GET operation in the spec, build positive (and optionally negative) cases using `test_data`.
-5. **Run** – For each case, GET the path (with params), compare status to expected, optionally check response shape.
-6. **Report** – Aggregate results, write `report.json` and `report.html` (if using CLI).
+Whether you use **pytest** or the **CLI**, the same pipeline runs: load spec → create client → discover → generate cases → run cases. The CLI then adds the report step.
+
+**Short summary:**
+
+1. **Load spec** – Read `spec/v2.yaml` (or the path you gave); parse as JSON or YAML into a dict with paths and schemas.
+2. **Create client** – HTTP client with the chosen base URL (and optional SSL verify from env).
+3. **Discovery** – GET models → nodes → properties → terms, GET tags; build `test_data` with real handles and IDs.
+4. **Generate cases** – For each GET operation in the spec, build positive (200) and optionally negative (404/422) cases using `test_data`.
+5. **Run** – For each case, GET the path (with params), compare status to expected, optionally check response shape; record pass/fail and duration.
+6. **Report** – Aggregate results, write timestamped `report_YYYY-MM-DDTHH-MM-SS.json` and `.html` (CLI only); each run gets its own files.
+
+A more detailed breakdown of each step is below.
+
+---
+
+#### Step 1: Load the spec
+
+- **What happens:** The framework reads the spec file from disk (e.g. `spec/v2.yaml`). The file may be JSON or YAML; the loader tries to parse it as JSON first (so a `.yaml` file that actually contains JSON still works), then falls back to YAML if needed.
+- **Result:** A Python dictionary with at least:
+  - `paths` – each key is a path template (e.g. `/v2/models/`, `/v2/id/{id}`); each value describes the HTTP methods and their parameters and responses.
+  - `components.schemas` – reusable response/request body schemas (e.g. `Model`, `Node`, `Entity`).
+- **Used by:** The generator reads `paths` to know every endpoint and its parameters; the contract runner (if used) reads `components.schemas` to validate response bodies.
+
+---
+
+#### Step 2: Create the HTTP client
+
+- **What happens:** An `APIClient` instance is created with the base URL (from `--base-url`, or from the `STS_BASE_URL` environment variable, or the default `https://sts.cancer.gov/v2`). The client also reads `STS_SSL_VERIFY` from the environment to decide whether to verify HTTPS certificates.
+- **Result:** A single client used for all subsequent requests. Every request is `GET`; the client builds the full URL as `base_url + path` (and appends query parameters when provided). Each response is wrapped in an `APIResponse` object (status code, body, parsed JSON if applicable, and request duration).
+- **Used by:** Discovery and the test run both use this client.
+
+---
+
+#### Step 3: Discovery
+
+- **What happens:** The framework calls the live API once to collect real IDs and values. It does **not** use the spec for this; it follows a fixed sequence of requests:
+  1. **GET** the models list (e.g. `/models/`). From the response it takes the **first** model’s `handle`, `version`, and `nanoid` and stores them in a `test_data` dict.
+  2. **GET** the nodes for that model (path like `/model/{modelHandle}/version/{versionString}/nodes`). From the first few nodes it then:
+     - **GET** the properties for each node (path like `.../node/{nodeHandle}/properties`). It keeps the first property’s `handle` and `nanoid`, and the node’s `handle` and `nanoid`.
+     - For up to a few properties, **GET** the terms (path like `.../property/{propHandle}/terms`). When it finds a non-empty term list, it takes one term’s `value` and stores it (so we have a real value for the “get term by value” endpoint).
+  3. **GET** the tags list (`/tags/`). It takes the first tag’s `key`, `value`, and `nanoid`.
+  4. Optionally **GET** the model-pvs endpoint for that model and property to mark that model-pvs data is available.
+- **Result:** A `test_data` dictionary with keys such as `model_handle`, `model_version`, `node_handle`, `prop_handle`, `term_value`, `tag_key`, `tag_value`, and various `*_nanoid` values. If any request fails or returns no data, the corresponding keys may be missing; the generator will then skip building positive cases for endpoints that need those values.
+- **Used by:** The generator uses `test_data` to fill path and query parameters when building positive test cases.
+
+---
+
+#### Step 4: Generate test cases
+
+- **What happens:** The generator walks every path and HTTP method in the spec (for STS v2, only GET). For each operation it:
+  - Reads the **path parameters** (e.g. `id`, `modelHandle`, `versionString`, `nodeHandle`) and **query parameters** (e.g. `skip`, `limit`) from the spec.
+  - **Positive case:** It tries to resolve each path parameter from `test_data` (e.g. `modelHandle` → `test_data["model_handle"]`). If it can resolve all of them, it builds a concrete path by substituting those values into the template (e.g. `/v2/model/ccdi/version/1.0/nodes` → normalized to `/model/ccdi/version/1.0/nodes`). It sets default query parameters (e.g. `skip=0`, `limit=10`) where the spec defines them. It then appends one case with `expected_status: 200` and the operation’s summary and response schema ref.
+  - **Negative case:** If the spec documents a 404 or 422 response for that operation, the generator adds a second case that uses an **invalid** value (e.g. `invalid_nonexistent_xyz`) for the path parameters. That case expects 404 or 422.
+- **Filtering:** If you passed `--tags` (CLI) or an equivalent filter, only operations whose OpenAPI `tags` match that list are included. If you passed `--no-negative`, negative cases are not added.
+- **Result:** A list of **case** dicts. Each case has at least: `path`, `params` (query or `None`), `expected_status`, `operation_id`, `summary`, `tag`, `negative`, and optionally `response_schema_ref`.
+- **Used by:** The functional runner (and optionally the contract runner) runs one request per case.
+
+---
+
+#### Step 5: Run the cases (functional run)
+
+- **What happens:** For each case in the list, the runner:
+  1. Calls **`client.get(path, params)`**. The client sends a GET request to `base_url + path` with the given query string, and records the start time. When the response arrives, it parses the body as JSON (if possible) and stores status code, body, parsed JSON, and **duration** in an `APIResponse`.
+  2. Compares **`response.status_code`** to the case’s **`expected_status`**. If they match, the case is marked passed; otherwise it’s failed and an error message is stored (e.g. “Expected 200, got 404” plus a snippet of the body).
+  3. For **positive cases that expected 200** and have a non-null JSON body, the runner optionally runs a **basic shape check**: it looks at the case’s `response_schema_ref` (e.g. `Node`, `Model`) and verifies that the response is an object (or list/int where appropriate) and that expected top-level keys (e.g. `nanoid`) are present. If the shape check fails, the case is marked failed and the error message is updated.
+  4. Appends a **result** dict to the list: `operation_id`, `path`, `expected_status`, `actual_status`, `passed`, `duration`, `error` (if any), `tag`, `negative`.
+- **Result:** A list of result dicts, one per case, each with pass/fail and timing. No files are written in this step.
+- **Used by:** The reporting step (CLI) or, in pytest, the test pass/fail and duration are reported by pytest itself.
+
+**Pytest note:** When you run pytest, **collection** runs the generator (using the same loader, client, and discovery) so that each case becomes one pytest test. **Execution** then runs those tests; each test calls `api_client.get(path, params)` and asserts on status (and basic shape). So the “run” step is the same logic, but invoked once per test by pytest.
+
+---
+
+#### Step 6: Report (CLI only)
+
+- **What happens:** After the functional run, the CLI:
+  1. **Aggregates** the result list: total count, passed/failed counts, counts per OpenAPI tag, and per-operation pass/fail and duration. It also computes a **P95 duration** (95th percentile of request durations in milliseconds) from the list of durations.
+  2. **Writes a timestamped JSON report** to the report directory: `report_YYYY-MM-DDTHH-MM-SS.json` (e.g. `report_2025-03-12T14-30-45.json`). The file contains the summary (total, passed, failed, by_tag, by_operation, durations_ms, p95_ms, errors) plus the full list of result dicts.
+  3. **Writes a timestamped HTML report** to the same directory: `report_YYYY-MM-DDTHH-MM-SS.html`. The HTML is a table: one row per case, with columns for operation ID, summary, path, status (Pass/Fail), expected/actual status, duration, and error message. The summary (total, passed, failed, P95) is shown at the top.
+- **Result:** Two files per run in the report directory; each run gets its own pair so previous reports are not overwritten. The CLI then prints a one-line summary (e.g. “Result: 33/41 passed”) and exits with code 0 if all passed or 1 if any failed.
+
+When you run **pytest** only, step 6 does not run unless you add a pytest hook or plugin that calls the same aggregation and report-writing code after the test run.
 
 ---
 
@@ -386,8 +493,10 @@ To validate 200 responses against the OpenAPI response schema:
 
 ### 8.1 Report contents
 
-- **report.json** – Full summary (total/passed/failed, by tag, by operation, durations, errors) plus the list of all results (one per case) with status, duration, and error message if failed.
-- **report.html** – Human-readable table: operation ID, summary, path, status (Pass/Fail), expected/actual status, duration, error message.
+The CLI writes **timestamped** report files so each run keeps its own reports (no overwrite): `report_YYYY-MM-DDTHH-MM-SS.json` and `report_YYYY-MM-DDTHH-MM-SS.html` (e.g. `report_2025-03-12T14-30-45.json`).
+
+- **report_*.json** – Full summary (total/passed/failed, by tag, by operation, durations, errors) plus the list of all results (one per case) with status, duration, and error message if failed.
+- **report_*.html** – Human-readable table: operation ID, summary, path, status (Pass/Fail), expected/actual status, duration, error message.
 
 Use the JSON for metrics and automation; use the HTML for quick inspection.
 
@@ -412,7 +521,7 @@ Or run pytest and optionally run the CLI for reports:
 - run: python -m sts_test_framework.cli --report reports/
 ```
 
-If any case fails, the CLI exits with code 1. You can also publish `reports/report.html` as an artifact so the team can open it after each run.
+If any case fails, the CLI exits with code 1. You can publish the contents of `reports/` (or the latest `report_*.html`) as an artifact so the team can open the report after each run. Use `--quiet` in CI if you want minimal log output.
 
 ---
 

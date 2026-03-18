@@ -3,6 +3,8 @@ CLI entry: run test suite with --spec, --base-url, --report, --tags.
 """
 import os
 import sys
+from collections import Counter
+from datetime import datetime
 from pathlib import Path
 
 
@@ -14,6 +16,7 @@ def main() -> None:
     parser.add_argument("--report", default=None, help="Report output directory (default: REPORT_DIR or reports/)")
     parser.add_argument("--tags", default=None, help="Comma-separated tags to run (default: all)")
     parser.add_argument("--no-negative", action="store_true", help="Skip negative test cases")
+    parser.add_argument("--quiet", action="store_true", help="Minimal output: only run count, report paths, and result")
     args = parser.parse_args()
 
     base_url = args.base_url or os.getenv("STS_BASE_URL", "https://sts.cancer.gov/v2")
@@ -27,8 +30,13 @@ def main() -> None:
         sys.exit(1)
 
     tag_filter = [t.strip() for t in args.tags.split(",")] if args.tags else None
+    quiet = args.quiet
 
-    from .loader import load_spec
+    def log(msg: str) -> None:
+        if not quiet:
+            print(msg, flush=True)
+
+    from .loader import load_spec, get_paths
     from .client import APIClient
     from .discover import discover
     from .generator import generate_cases
@@ -36,27 +44,81 @@ def main() -> None:
     from .reporters.report import aggregate_results, write_json_report
     from .reporters.html_report import write_html_report
 
+    # Step 1: Load spec
+    log(f"Loading spec from {spec_path}...")
     spec = load_spec(spec_path)
-    client = APIClient(base_url)
-    test_data = discover(client)
-    cases = generate_cases(spec, test_data, include_negative=not args.no_negative, tag_filter=tag_filter)
+    paths = get_paths(spec)
+    log(f"Spec loaded: {len(paths)} paths.")
 
+    # Step 2: Create client
+    log(f"Client created: base_url={base_url}")
+    client = APIClient(base_url)
+
+    # Step 3: Discovery
+    log("Running discovery...")
+    test_data = discover(client)
+    if test_data:
+        # Summary of what was found (keys only; optional 1–2 example values)
+        parts = []
+        for key in ("model_handle", "model_version", "node_handle", "prop_handle", "term_value", "tag_key", "tag_value"):
+            if key in test_data:
+                v = test_data[key]
+                if isinstance(v, str) and len(v) > 20:
+                    v = v[:17] + "..."
+                parts.append(f"{key}={v!r}")
+        log(f"Discovery: {', '.join(parts)}")
+    else:
+        log("Discovery: no data (API may be unreachable or returned no models).")
+
+    # Step 4: Generate cases
+    cases = generate_cases(spec, test_data, include_negative=not args.no_negative, tag_filter=tag_filter)
     if not cases:
-        print("No test cases generated (check discovery and tag filter)")
+        print("No test cases generated (check discovery and tag filter)", file=sys.stderr)
         sys.exit(0)
 
-    print(f"Running {len(cases)} test cases...")
-    results = run_functional_tests(client, cases)
+    n_positive = sum(1 for c in cases if not c.get("negative"))
+    n_negative = len(cases) - n_positive
+    log(f"Generated {len(cases)} cases ({n_positive} positive, {n_negative} negative).")
+    if not quiet:
+        by_tag = Counter(c.get("tag") or "unknown" for c in cases)
+        tag_parts = [f"{tag}={count}" for tag, count in sorted(by_tag.items())]
+        log(f"By tag: {', '.join(tag_parts)}.")
+
+    # Step 5: Run
+    def on_case_done(result: dict) -> None:
+        status = "Pass" if result.get("passed") else "Fail"
+        path = result.get("path", "")
+        duration = result.get("duration")
+        duration_ms = f"{duration * 1000:.0f} ms" if duration is not None else "?"
+        if result.get("passed"):
+            log(f"  [Pass] GET {path} ({duration_ms})")
+        else:
+            err = (result.get("error") or "")[:80]
+            log(f"  [Fail] GET {path} - {err}")
+
+    if quiet:
+        print(f"Running {len(cases)} test cases...", flush=True)
+    else:
+        log(f"Running {len(cases)} test cases...")
+    results = run_functional_tests(client, cases, on_case_done=on_case_done if not quiet else None)
     summary = aggregate_results(results)
 
+    # Step 6: Report (timestamped)
+    run_id = datetime.now().strftime("%Y-%m-%dT%H-%M-%S")
+    report_basename = f"report_{run_id}"
     Path(report_dir).mkdir(parents=True, exist_ok=True)
-    write_json_report(summary, results, Path(report_dir) / "report.json")
-    write_html_report(summary, results, Path(report_dir) / "report.html")
-    print(f"Report written to {report_dir}/")
+    json_path = Path(report_dir) / f"{report_basename}.json"
+    html_path = Path(report_dir) / f"{report_basename}.html"
+    write_json_report(summary, results, json_path)
+    write_html_report(summary, results, html_path)
+    if quiet:
+        print(f"Report written: {json_path}, {html_path}", flush=True)
+    else:
+        log(f"Report written: {json_path}, {html_path}")
 
     passed = summary.get("passed", 0)
     total = summary.get("total", 0)
-    print(f"Result: {passed}/{total} passed")
+    print(f"Result: {passed}/{total} passed", flush=True)
     if summary.get("failed", 0) > 0:
         sys.exit(1)
     sys.exit(0)

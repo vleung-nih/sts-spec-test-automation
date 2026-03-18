@@ -61,6 +61,12 @@ Skip negative cases:
 python -m sts_test_framework.cli --no-negative
 ```
 
+Use minimal output (e.g. for CI):
+
+```bash
+python -m sts_test_framework.cli --quiet --report reports/
+```
+
 ## Project layout
 
 | Path | Purpose |
@@ -70,7 +76,7 @@ python -m sts_test_framework.cli --no-negative
 | `tests/conftest.py` | Pytest fixtures: spec, api_client, test_data, generated_cases |
 | `tests/test_manual/` | Manual tests (e.g. root, consistency) |
 | `tests/test_generated/` | Dynamic tests parametrized from generated cases |
-| `reports/` | Default output for HTML and JSON reports |
+| `reports/` | Default output for timestamped report files (`report_YYYY-MM-DDTHH-MM-SS.json`, `.html`) |
 | `docs/ONBOARDING.md` | Full onboarding: concepts, structure, run, add tests, glossary |
 | `docs/FRAMEWORK.md` | Short summary and pointer to ONBOARDING |
 

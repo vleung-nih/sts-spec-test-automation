@@ -3,7 +3,7 @@ Functional test runner: execute generated cases, assert status and basic shape, 
 """
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Callable
 
 if TYPE_CHECKING:
     from ..client import APIClient
@@ -14,10 +14,12 @@ from ..client import APIResponse
 def run_functional_tests(
     client: "APIClient",
     cases: list[dict],
+    on_case_done: Callable[[dict], None] | None = None,
 ) -> list[dict]:
     """
     Run functional tests for each case. Each case has path, params, expected_status, operation_id, etc.
     Returns list of result dicts: { operation_id, path, expected_status, actual_status, passed, duration, error? }
+    If on_case_done is provided, it is called with each result dict after each case completes.
     """
     results = []
     for case in cases:
@@ -43,7 +45,7 @@ def run_functional_tests(
                 passed = False
                 error = shape_error
 
-        results.append({
+        result = {
             "operation_id": operation_id,
             "summary": summary,
             "path": path,
@@ -55,7 +57,10 @@ def run_functional_tests(
             "error": error,
             "tag": case.get("tag"),
             "negative": case.get("negative", False),
-        })
+        }
+        results.append(result)
+        if on_case_done:
+            on_case_done(result)
     return results
 
 
