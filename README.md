@@ -105,6 +105,10 @@ python -m sts_test_framework.cli --quiet --report reports/
 - **Adjust generation**: Edit `src/sts_test_framework/generator.py` to add or change positive/negative cases (e.g. query param validation).
 - **Contract validation**: Use the optional `runners.contract.run_contract_tests` and install `jsonschema` (and optionally `openapi-spec-validator`).
 
+## CI / GitHub Actions
+
+Tests run on every push and pull request to `main`/`master`. The workflow is in [.github/workflows/sts-tests.yml](.github/workflows/sts-tests.yml): it installs the package, runs the CLI against STS QA (`https://sts-qa.cancer.gov/v2`), and uploads the `reports/` directory as an artifact so you can download the HTML report from the Actions run. To use a different base URL (e.g. prod), set the repository variable `STS_BASE_URL` in Settings → Secrets and variables → Actions.
+
 ## Dependencies
 
 - Python 3.9+

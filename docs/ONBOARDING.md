@@ -548,7 +548,9 @@ Use the JSON for metrics and automation; use the HTML for quick inspection.
 
 ### 8.2 Running in CI (e.g. GitHub Actions)
 
-Example:
+This repo includes a ready-to-use workflow in `.github/workflows/sts-tests.yml` that runs on push and pull request to `main`/`master`, uses STS QA by default, and uploads reports as artifacts.
+
+Example (for reference or custom workflows):
 
 ```yaml
 - name: Run STS v2 API tests

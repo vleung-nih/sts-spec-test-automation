@@ -1,0 +1,37 @@
+# Run STS v2 API test framework on push and pull requests.
+# Uses first model from /models/; reports are uploaded as artifacts.
+name: STS API tests
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install package
+        run: pip install -e .
+
+      - name: Run STS tests
+        env:
+          # Default: STS QA. Override via repo variable STS_BASE_URL (Settings → Variables) if needed.
+          STS_BASE_URL: ${{ vars.STS_BASE_URL }}
+        run: |
+          export STS_BASE_URL="${STS_BASE_URL:-https://sts-qa.cancer.gov/v2}"
+          python -m sts_test_framework.cli --report reports/ --quiet
+
+      - name: Upload reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: sts-reports
+          path: reports/
