@@ -23,6 +23,7 @@ jobs:
         run: pip install -e .
 
       - name: Run STS tests
+        id: run-tests
         env:
           # Default: STS QA. Override via repo variable STS_BASE_URL (Settings → Variables) if needed.
           STS_BASE_URL: ${{ vars.STS_BASE_URL }}
@@ -30,7 +31,29 @@ jobs:
           export STS_BASE_URL="${STS_BASE_URL:-https://sts-qa.cancer.gov/v2}"
           python -m sts_test_framework.cli --report reports/ --quiet
 
+      - name: Show failure summary
+        if: failure() && steps.run-tests.outcome == 'failure'
+        run: |
+          echo "## STS test failures (first 15 errors from report)"
+          python3 << 'PY'
+          import json, glob, os
+          reports = sorted(glob.glob("reports/report_*.json"), key=os.path.getmtime)
+          if not reports:
+              print("No report found.")
+              exit(0)
+          with open(reports[-1]) as f:
+              d = json.load(f)
+          results = d.get("results", [])
+          errors = [r for r in results if r.get("error")]
+          for i, r in enumerate(errors[:15]):
+              err = (r.get("error") or "")[:120]
+              print(f"  {i+1}. [{r.get('operation_id', '?')}] {err}")
+          if len(errors) > 15:
+              print(f"  ... and {len(errors) - 15} more (see artifact).")
+          PY
+
       - name: Upload reports
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: sts-reports
