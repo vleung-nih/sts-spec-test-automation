@@ -1,5 +1,8 @@
 """
-CLI entry: run test suite with --spec, --base-url, --report, --tags.
+Command-line entry: load spec, discover live data, generate cases, run GET tests, write reports.
+
+Pipeline: ``load_spec`` → ``discover`` → ``generate_cases`` → ``run_functional_tests``
+→ JSON + HTML reports. Exit code 1 if any case fails.
 """
 import os
 import sys
@@ -9,6 +12,11 @@ from pathlib import Path
 
 
 def main() -> None:
+    """
+    Parse argv, run the full STS v2 functional suite, print pass/fail summary.
+
+    Environment: ``STS_BASE_URL``, ``REPORT_DIR``, ``STS_SSL_VERIFY`` (via client).
+    """
     import argparse
     parser = argparse.ArgumentParser(description="STS v2 API Test Framework")
     parser.add_argument("--spec", default=None, help="Path to OpenAPI spec (v2.yaml)")
@@ -33,6 +41,7 @@ def main() -> None:
     quiet = args.quiet
 
     def log(msg: str) -> None:
+        """Print progress line unless ``--quiet`` (then only critical lines go to stdout)."""
         if not quiet:
             print(msg, flush=True)
 
@@ -86,8 +95,9 @@ def main() -> None:
 
     # Step 5: Run
     def on_case_done(result: dict) -> None:
+        """Per-case callback: log Pass/Fail with path and duration (non-quiet mode)."""
         status = "Pass" if result.get("passed") else "Fail"
-        path = result.get("path", "")
+        path = result.get("path_display") or result.get("path", "")
         duration = result.get("duration")
         duration_ms = f"{duration * 1000:.0f} ms" if duration is not None else "?"
         if result.get("passed"):
@@ -110,7 +120,7 @@ def main() -> None:
     json_path = Path(report_dir) / f"{report_basename}.json"
     html_path = Path(report_dir) / f"{report_basename}.html"
     write_json_report(summary, results, json_path)
-    write_html_report(summary, results, html_path)
+    write_html_report(summary, results, html_path, base_url=base_url)
     if quiet:
         print(f"Report written: {json_path}, {html_path}", flush=True)
     else:

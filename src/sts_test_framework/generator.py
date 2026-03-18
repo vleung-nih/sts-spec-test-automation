@@ -1,6 +1,19 @@
 """
 OpenAPI-driven test case generation for STS v2.
+
 Builds positive (200) and negative (404/422) test cases from spec and discovery data.
+
+Special case — property terms count (invalid path params):
+    Most paths ending in ``/count`` return HTTP 200 with body ``0`` when path segments
+    refer to missing resources. The endpoint
+    ``.../node/{nodeHandle}/property/{propHandle}/terms/count`` is different: the API
+    returns **404** for invalid/missing path context instead of 200+0. The generator
+    treats any path ending in ``/terms/count`` as that exception; see
+    ``_is_terms_property_count_path`` and the invalid-param branch in ``generate_cases``.
+
+Special case — CDE PVs by id+version (invalid path params):
+    GET ``.../terms/cde-pvs/{id}/{version}/pvs`` returns **200** with body **[]** for
+    invalid id/version instead of 404; see ``_is_cde_pvs_by_id_pvs_path``.
 """
 from urllib.parse import quote
 
@@ -8,33 +21,80 @@ from .loader import get_paths, load_spec, normalize_path_for_base
 
 
 def _path_params_from_spec(operation: dict) -> list[dict]:
-    """Extract path parameters from operation."""
+    """
+    Extract OpenAPI ``parameters`` entries with ``in: path`` from a single operation.
+
+    Returns:
+        List of parameter dicts (name, schema, etc.) used to build URL path segments.
+    """
     params = operation.get("parameters") or []
     return [p for p in params if isinstance(p, dict) and p.get("in") == "path"]
 
 
 def _query_params_from_spec(operation: dict) -> list[dict]:
-    """Extract query parameters from operation."""
+    """
+    Extract OpenAPI ``parameters`` with ``in: query`` (e.g. skip, limit, version).
+
+    Used to generate default query strings and optional bad-query negative cases.
+    """
     params = operation.get("parameters") or []
     return [p for p in params if isinstance(p, dict) and p.get("in") == "query"]
 
 
 def _response_codes(operation: dict) -> set[int]:
-    """Return set of documented response status codes."""
+    """
+    Collect numeric HTTP status codes declared under ``operation.responses``.
+
+    Drives whether we emit 404-style vs 422-style negatives and bad-query cases.
+    """
     responses = operation.get("responses") or {}
     return {int(k) for k in responses if str(k).isdigit()}
 
 
 def _fill_path_template(template: str, path_param_values: dict[str, str], base_path: str = "/v2") -> str:
-    """Replace {param} in template with values. Template may be /v2/...; return path relative to base."""
+    """
+    Substitute ``{paramName}`` placeholders with URL-encoded values.
+
+    After substitution, strips a leading ``base_path`` (e.g. ``/v2``) so the result
+    matches paths relative to ``APIClient.base_url`` (which already includes ``/v2``).
+    """
     path = template
     for key, value in path_param_values.items():
         path = path.replace("{" + key + "}", quote(str(value), safe=""))
     return normalize_path_for_base(path, base_path)
 
 
+def _integer_skip_limit_names(query_params: list[dict]) -> set[str]:
+    """
+    Names of query parameters named ``skip`` or ``limit`` whose schema type is integer.
+
+    Only those params are eligible for synthetic bad-query cases (e.g. skip=-1).
+    """
+    out = set()
+    for p in query_params:
+        if not isinstance(p, dict):
+            continue
+        name = p.get("name")
+        if name not in ("skip", "limit"):
+            continue
+        schema = p.get("schema") or {}
+        if schema.get("type") == "integer":
+            out.add(name)
+    return out
+
+
+def _has_integer_skip_or_limit(query_params: list[dict]) -> bool:
+    """Whether the operation has at least one integer ``skip`` or ``limit`` query param."""
+    return bool(_integer_skip_limit_names(query_params))
+
+
 def _get_schema_ref(operation: dict) -> str | None:
-    """Get response schema $ref for 200 if present (first from anyOf/oneOf)."""
+    """
+    Resolve the components schema name for a successful (200) JSON response.
+
+    Follows ``application/json.schema.$ref`` or the first entry in ``anyOf``/``oneOf``.
+    Used by the functional runner for light shape checks (entity vs list vs int).
+    """
     responses = operation.get("responses") or {}
     r200 = responses.get("200") or responses.get(200)
     if not r200 or not isinstance(r200, dict):
@@ -63,22 +123,27 @@ def generate_cases(
     include_negative: bool = True,
 ) -> list[dict]:
     """
-    Generate test cases from spec and discovery data.
-    Each case: {
-        "path": str (path relative to base_url),
-        "params": dict | None (query params),
-        "expected_status": int,
-        "operation_id": str,
-        "summary": str,
-        "tag": str | None,
-        "negative": bool,
-        "response_schema_ref": str | None,
-    }
+    Generate one positive GET case per operation (when discovery can fill path params),
+    plus optional negatives: bad ``skip``/``limit``, and invalid path params.
+
+    Args:
+        spec: Parsed OpenAPI document.
+        test_data: Keys from ``discover()`` (model_handle, node_handle, etc.).
+        base_path: Prefix stripped from spec paths (default ``/v2``).
+        tag_filter: If set, only operations whose tags overlap this list.
+        include_negative: If False, skip bad-query and invalid-path cases.
+
+    Returns:
+        List of case dicts, each with:
+        ``path``, ``params``, ``expected_status``, ``operation_id``, ``summary``,
+        ``tag``, ``negative``, ``response_schema_ref``.
     """
     paths = get_paths(spec)
     cases = []
 
     for path_template, method, op in _iter_ops(spec, tag_filter):
+        if path_template == "/":
+            continue  # Root endpoint excluded from suite
         if method != "get":
             continue
 
@@ -109,9 +174,55 @@ def generate_cases(
                 "response_schema_ref": schema_ref,
             })
 
-        # Negative cases
-        if include_negative and (404 in response_codes or 422 in response_codes):
-            expected = 404 if 404 in response_codes else 422
+            # Bad query param cases (422): valid path, invalid skip/limit
+            if include_negative and 422 in response_codes and _has_integer_skip_or_limit(query_params):
+                base_q = dict(query_vals) if query_vals else {}
+                skip_limit_names = _integer_skip_limit_names(query_params)
+                if "skip" in skip_limit_names:
+                    bad_skip_params = {**base_q, "skip": -1}
+                    cases.append({
+                        "path": path_str,
+                        "params": bad_skip_params,
+                        "expected_status": 422,
+                        "operation_id": f"{operation_id}__bad_query_skip",
+                        "summary": f"{summary} (bad query: skip=-1)",
+                        "tag": tag,
+                        "negative": True,
+                        "response_schema_ref": None,
+                    })
+                if "limit" in skip_limit_names:
+                    bad_limit_params = {**base_q, "limit": "not_a_number"}
+                    if "skip" not in bad_limit_params:
+                        bad_limit_params["skip"] = 0
+                    cases.append({
+                        "path": path_str,
+                        "params": bad_limit_params,
+                        "expected_status": 422,
+                        "operation_id": f"{operation_id}__bad_query_limit",
+                        "summary": f"{summary} (bad query: limit=not_a_number)",
+                        "tag": tag,
+                        "negative": True,
+                        "response_schema_ref": None,
+                    })
+
+        # --- Negative: invalid path parameters ---
+        # Only emit when the op has path params; otherwise the "negative" URL equals the
+        # positive one (e.g. GET /models/) and expecting 404 would be wrong.
+        if include_negative and path_params and (404 in response_codes or 422 in response_codes):
+            # Expected status for "all path segments replaced with garbage":
+            #
+            # - Default for most routes: 404 if spec documents 404, else 422.
+            # - Paths ending in /count (e.g. .../nodes/count): STS returns 200 with body 0
+            #   for missing resources — so we expect 200, not 404.
+            # - EXCEPTION — .../terms/count (property term count): unlike other *count*
+            #   endpoints, this route returns 404 for invalid path context. We must NOT
+            #   apply the 200+0 rule here; see _is_terms_property_count_path().
+            # - EXCEPTION — GET .../terms/cde-pvs/{id}/{version}/pvs: returns 200 with
+            #   body [] for invalid id/version; expect 200, not 404. See _is_cde_pvs_by_id_pvs_path().
+            use_200_for_invalid_path = (
+                _is_count_path(path_template) and not _is_terms_property_count_path(path_template)
+            ) or _is_cde_pvs_by_id_pvs_path(path_template)
+            expected = 200 if use_200_for_invalid_path else (404 if 404 in response_codes else 422)
             neg_path_values = _negative_path_params(path_template, path_params, test_data)
             if neg_path_values is not None:
                 path_str = _fill_path_template(path_template, neg_path_values, base_path)
@@ -129,8 +240,45 @@ def generate_cases(
     return cases
 
 
+def _is_count_path(path_template: str) -> bool:
+    """
+    True if the path template ends with ``/count`` (after trimming trailing slash).
+
+    Includes both e.g. ``.../nodes/count`` and ``.../terms/count``. The latter is
+    further classified by ``_is_terms_property_count_path`` for expectation logic.
+    """
+    return path_template.rstrip("/").endswith("/count")
+
+
+def _is_terms_property_count_path(path_template: str) -> bool:
+    """
+    True for the property-level term **count** route only: ``.../terms/count``.
+
+    Operation id in spec:
+    ``model_..._property_..._terms_count_get``. For invalid path params, the API
+    responds with **404**, not **200** with integer ``0`` like other ``*count``
+    endpoints. This function excludes that path from the "count => expect 200" rule.
+    """
+    return path_template.rstrip("/").endswith("/terms/count")
+
+
+def _is_cde_pvs_by_id_pvs_path(path_template: str) -> bool:
+    """
+    True for GET ``.../terms/cde-pvs/{id}/{version}/pvs`` only.
+
+    For invalid id/version the API returns **200** with body **[]** (empty array)
+    instead of 404. We expect 200 so the invalid-path negative case passes.
+    """
+    p = path_template.rstrip("/")
+    return "terms/cde-pvs" in p and p.endswith("/pvs")
+
+
 def _iter_ops(spec: dict, tag_filter: list[str] | None):
-    """Iterate (path_template, method, operation) from spec."""
+    """
+    Yield ``(path_template, http_method, operation_dict)`` for every operation.
+
+    Optionally filters by OpenAPI ``tags``. Used internally by ``generate_cases``.
+    """
     paths = get_paths(spec)
     for path_template, path_item in paths.items():
         if not isinstance(path_item, dict):
@@ -147,7 +295,13 @@ def _iter_ops(spec: dict, tag_filter: list[str] | None):
 
 
 def _resolve_path_params(path_template: str, path_params: list[dict], test_data: dict) -> dict | None:
-    """Resolve path parameter values from test_data. Return None if cannot resolve."""
+    """
+    Map discovery dict to path parameter names (modelHandle, nodeHandle, id, etc.).
+
+    Returns:
+        Dict of param name -> value for the positive case, or ``None`` if any required
+        value is missing so the operation is skipped for positive generation.
+    """
     if not path_params:
         return {}
     values = {}
@@ -220,7 +374,11 @@ def _resolve_path_params(path_template: str, path_params: list[dict], test_data:
 
 
 def _negative_path_params(path_template: str, path_params: list[dict], test_data: dict) -> dict | None:
-    """Return path param values that should yield 404/422 (e.g. invalid id)."""
+    """
+    Build path values using a fixed invalid string for every known id/handle param.
+
+    Intended to produce a request the server treats as non-existent or invalid.
+    """
     if not path_params:
         return {}
     # Use a single invalid value for path params that look like ids/handles
@@ -241,7 +399,12 @@ def _negative_path_params(path_template: str, path_params: list[dict], test_data
 
 
 def _default_query_params(query_params: list[dict]) -> dict:
-    """Default values for query params (e.g. skip=0, limit=10)."""
+    """
+    Sensible defaults for optional query params so list endpoints return a page.
+
+    Uses schema ``default`` when present; integers default to 0 for skip-like names
+    and 10 otherwise; booleans default to False.
+    """
     out = {}
     for p in query_params:
         name = p.get("name")
@@ -258,7 +421,11 @@ def _default_query_params(query_params: list[dict]) -> dict:
 
 
 def _resolve_query_params(path_template: str, op: dict, query_params: list[dict], current: dict, test_data: dict) -> dict:
-    """Add discovery-based query params (e.g. version for model-pvs)."""
+    """
+    Merge discovery-derived query params into ``current`` for specific routes.
+
+    Example: ``/terms/model-pvs/...`` needs ``version`` from discovered model version.
+    """
     if "/terms/model-pvs/" in path_template and "version" in [p.get("name") for p in query_params]:
         if test_data.get("model_version"):
             current["version"] = test_data["model_version"]

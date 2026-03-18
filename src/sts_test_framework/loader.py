@@ -1,6 +1,8 @@
 """
-Load and parse OpenAPI spec (v2.yaml). Exposes paths and components/schemas.
-Supports both JSON and YAML format.
+Load and parse OpenAPI spec (v2.yaml).
+
+Provides ``load_spec``, path/schema accessors, and ``normalize_path_for_base`` so
+generated request paths align with a base URL that already includes ``/v2``.
 """
 import json
 from pathlib import Path
@@ -44,20 +46,23 @@ def load_spec(spec_path: str | Path) -> dict[str, Any]:
 
 
 def get_paths(spec: dict[str, Any]) -> dict[str, Any]:
-    """Return paths section from spec. Keys are path templates (e.g. /v2/id/{id})."""
+    """Return the OpenAPI ``paths`` object: template string -> path item (methods, parameters)."""
     return spec.get("paths") or {}
 
 
 def get_schemas(spec: dict[str, Any]) -> dict[str, Any]:
-    """Return components.schemas from spec."""
+    """Return ``components.schemas`` for contract validation and documentation."""
     components = spec.get("components") or {}
     return components.get("schemas") or {}
 
 
 def get_operations(spec: dict[str, Any], tag_filter: list[str] | None = None) -> list[tuple[str, str, dict]]:
     """
-    Yield (path_template, method, operation_dict) for each operation in the spec.
-    If tag_filter is provided, only include operations whose tags intersect with it.
+    Yield every HTTP operation under ``paths`` (optional tag filter).
+
+    Yields:
+        ``(path_template, lower_case_method, operation_dict)``. The generator module
+        uses ``_iter_ops`` instead but behavior is analogous.
     """
     paths = get_paths(spec)
     for path_template, path_item in paths.items():

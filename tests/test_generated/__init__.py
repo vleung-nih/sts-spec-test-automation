@@ -1,1 +1,1 @@
-# Generated or dynamic tests from OpenAPI spec
+"""Package for OpenAPI-driven parametrized tests (see ``test_from_spec``)."""

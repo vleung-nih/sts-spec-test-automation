@@ -1,5 +1,5 @@
 """
-Dynamic tests from OpenAPI spec: one test per generated case.
+Parametrized tests: one pytest case per generated GET (collection-time case generation).
 """
 import os
 import pytest
@@ -7,7 +7,7 @@ from pathlib import Path
 
 
 def _get_generated_cases():
-    """Load spec, discover, generate cases (used at collection time)."""
+    """Build case list when pytest collects tests (no fixture dependency at collection)."""
     from sts_test_framework.loader import load_spec
     from sts_test_framework.discover import discover
     from sts_test_framework.generator import generate_cases
@@ -23,7 +23,7 @@ def _get_generated_cases():
 
 
 def pytest_generate_tests(metafunc):
-    """Parametrize test_generated_case by generated cases."""
+    """Inject ``case`` parameter and ids from ``operation_id`` for each generated row."""
     if "case" in metafunc.fixturenames:
         cases = _get_generated_cases()
         ids = [c.get("operation_id") or str(i) for i, c in enumerate(cases)]
@@ -31,7 +31,7 @@ def pytest_generate_tests(metafunc):
 
 
 def test_generated_case(api_client, case):
-    """One assertion per generated case (status and basic shape for 200)."""
+    """Assert HTTP status matches case; for 200, JSON must be list, dict, or int."""
     path = case.get("path", "")
     params = case.get("params")
     expected = case.get("expected_status", 200)

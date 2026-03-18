@@ -1,14 +1,35 @@
 """
-Functional test runner: execute generated cases, assert status and basic shape, record results.
+Functional runner: for each generated case, GET the path and compare status to ``expected_status``.
+
+Successful 200 responses may be checked for coarse JSON shape (object vs list vs int).
 """
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, Callable
+from urllib.parse import quote
 
 if TYPE_CHECKING:
     from ..client import APIClient
 
 from ..client import APIResponse
+
+
+def _path_with_query(path: str, params: dict | None) -> str:
+    """Append URL-encoded query string to path for human-readable report columns."""
+    if not params:
+        return path
+    query_parts = []
+    for k, v in params.items():
+        if v is None:
+            continue
+        if isinstance(v, list):
+            for item in v:
+                query_parts.append(f"{k}={quote(str(item), safe='')}")
+        else:
+            query_parts.append(f"{k}={quote(str(v), safe='')}")
+    if not query_parts:
+        return path
+    return path + "?" + "&".join(query_parts)
 
 
 def run_functional_tests(
@@ -17,9 +38,15 @@ def run_functional_tests(
     on_case_done: Callable[[dict], None] | None = None,
 ) -> list[dict]:
     """
-    Run functional tests for each case. Each case has path, params, expected_status, operation_id, etc.
-    Returns list of result dicts: { operation_id, path, expected_status, actual_status, passed, duration, error? }
-    If on_case_done is provided, it is called with each result dict after each case completes.
+    Execute every case in order via ``client.get``.
+
+    Args:
+        client: Base URL + SSL settings.
+        cases: Generated dicts with ``path``, ``params``, ``expected_status``, etc.
+        on_case_done: Optional callback after each case (CLI uses this for live log lines).
+
+    Returns:
+        List of result dicts (operation_id, path_display, passed, duration, error, ...).
     """
     results = []
     for case in cases:
@@ -45,10 +72,12 @@ def run_functional_tests(
                 passed = False
                 error = shape_error
 
+        path_display = _path_with_query(path, params)
         result = {
             "operation_id": operation_id,
             "summary": summary,
             "path": path,
+            "path_display": path_display,
             "params": params,
             "expected_status": expected_status,
             "actual_status": response.status_code,
@@ -65,7 +94,12 @@ def run_functional_tests(
 
 
 def _check_basic_shape(response: APIResponse, case: dict) -> tuple[bool, str | None]:
-    """Basic response shape: array or object, and required top-level keys if schema ref known."""
+    """
+    After status matches, optionally validate JSON kind vs ``response_schema_ref``.
+
+    Entity-like refs expect a dict with identifiers; lists and integers pass loosely
+    (counts return int). Returns ``(True, None)`` if no ref or check skipped.
+    """
     data = response.json()
     if data is None:
         return True, None  # No shape check if not JSON

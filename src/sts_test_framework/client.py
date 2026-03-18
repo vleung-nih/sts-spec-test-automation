@@ -1,5 +1,7 @@
 """
-HTTP client for STS API testing. Supports configurable base URL, timeout, SSL verify, and response timing.
+Minimal HTTP GET client for STS (stdlib ``urllib``): timing, JSON parse, SSL toggle.
+
+``APIResponse`` wraps status, raw body, parsed JSON, and request duration for reporting.
 """
 import json
 import os
@@ -10,31 +12,42 @@ from urllib.request import Request, urlopen
 
 
 class APIResponse:
-    """API response wrapper with status, body, parsed JSON, and duration."""
+    """Single request outcome: HTTP status, body text, optional parsed JSON, elapsed seconds."""
 
     def __init__(self, status_code: int, body: str, json_data: dict | list | None, duration: float):
+        """Store response fields; ``json_data`` may be None if body is empty or non-JSON."""
         self.status_code = status_code
         self.body = body
         self._json = json_data
         self.duration = duration
 
     def json(self) -> dict | list | None:
+        """Parsed JSON (dict/list) or None."""
         return self._json
 
     def is_success(self) -> bool:
+        """True for 2xx status codes."""
         return 200 <= self.status_code < 300
 
     def is_not_found(self) -> bool:
+        """True when status is 404."""
         return self.status_code == 404
 
     def is_no_content(self) -> bool:
+        """True when status is 204."""
         return self.status_code == 204
 
 
 class APIClient:
-    """Simple HTTP client for API testing. GET-only for STS v2."""
+    """Stateful GET client: ``base_url`` + optional SSL verification and timeout."""
 
     def __init__(self, base_url: str, timeout: int = 60, ssl_verify: bool | None = None):
+        """
+        Args:
+            base_url: e.g. ``https://sts.cancer.gov/v2`` (no trailing slash stored).
+            timeout: Socket timeout per request.
+            ssl_verify: If None, read ``STS_SSL_VERIFY=false`` to disable cert check.
+        """
         self.base_url = base_url.rstrip("/")
         self.timeout = timeout
         if ssl_verify is None:
@@ -42,6 +55,7 @@ class APIClient:
         self._ssl_verify = ssl_verify
 
     def _make_request(self, method: str, path: str, params: dict | None = None) -> APIResponse:
+        """Build URL, perform request, return ``APIResponse`` (handles HTTP errors as responses)."""
         url = self.base_url + path
         if params:
             query_parts = []
@@ -100,7 +114,7 @@ class APIClient:
 
 
 def full_url(client: APIClient, path: str, params: dict | None = None) -> str:
-    """Build full URL for logging."""
+    """Concatenate ``client.base_url`` + path + query string (for display/debug only)."""
     url = client.base_url + path
     if params:
         query_parts = []

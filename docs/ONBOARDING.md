@@ -75,6 +75,7 @@ The **generator** walks every path and method in the spec. For each operation it
 
 - **Positive case:** Fills path and query parameters from the discovery data. If it can resolve all required parameters, it adds one case with `expected_status: 200`.
 - **Negative case:** Where the spec documents 404 or 422, it adds a case that uses an **invalid** value (e.g. `invalid_nonexistent_xyz`) for a path parameter, expecting 404 or 422.
+- **Bad query (422):** For operations that document 422 and have integer `skip`/`limit` query parameters, the generator adds one or two extra cases (same valid path, invalid query: `skip=-1` and/or `limit=not_a_number`) with distinct `operation_id` suffixes (e.g. `__bad_query_skip`, `__bad_query_limit`) so pytest ids stay unique.
 
 Each **case** is a small dictionary: `path`, `params`, `expected_status`, `operation_id`, `summary`, `tag`, and whether it’s negative. No test code is written by hand for these; they come from the spec + discovery.
 
@@ -469,6 +470,8 @@ If a new endpoint needs a new kind of ID (e.g. a “study” id), you add the di
 - **New positive/negative rules** – Edit `generator.py`. For example, to add a negative case that sends an invalid query param (e.g. `skip=-1`) and expects 422, you’d add logic that builds a case with that param and `expected_status: 422`.
 - **Filter by tag** – When running, use `--tags id,model` (CLI) or, if you add a pytest option, filter the cases in the generator with `tag_filter`.
 - **Skip certain operations** – In `_iter_ops()` or in the loop in `generate_cases()`, skip path templates or operation IDs you don’t want to test.
+
+- **Root and count endpoints** – The root endpoint (`/`) is intentionally excluded from the suite. For **count** endpoints (e.g. `.../nodes/count`, `.../properties/count`, `.../entities/count`), invalid path parameters yield **200 with body 0**; **422** is reserved for invalid query parameters (e.g. negative skip/limit).
 
 ### 7.4 Adding or changing assertions (functional runner)
 

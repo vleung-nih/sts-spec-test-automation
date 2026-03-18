@@ -1,5 +1,7 @@
 """
-Optional contract runner: validate 200 responses against OpenAPI response schemas using jsonschema.
+Optional contract tests: validate 200 response bodies with ``jsonschema`` against spec schemas.
+
+Requires optional dependency ``jsonschema``; otherwise returns stub "passed" rows.
 """
 from __future__ import annotations
 
@@ -15,8 +17,10 @@ def run_contract_tests(
     spec: dict,
 ) -> list[dict]:
     """
-    Run contract validation for cases that expect 200. Validates JSON against operation response schema.
-    Returns list of result dicts with passed, schema_violations, etc.
+    For each case with ``expected_status == 200``, GET again and validate body vs ``components.schemas``.
+
+    Non-200 expectations are skipped (marked passed). Missing ``jsonschema`` yields
+    trivial pass rows with an explanatory error string.
     """
     try:
         import jsonschema
@@ -66,7 +70,11 @@ def run_contract_tests(
 
 
 def _to_jsonschema(schema: dict) -> dict:
-    """Convert OpenAPI 3 schema to JSON Schema draft-07 style for jsonschema lib."""
+    """
+    Recursively map OpenAPI schema fragments (type, properties, items, required).
+
+    Resolves shallow structure only; ``$ref`` is passed through for caller handling.
+    """
     if not schema:
         return {}
     out = {}

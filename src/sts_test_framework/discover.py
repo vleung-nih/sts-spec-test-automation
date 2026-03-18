@@ -1,6 +1,8 @@
 """
-Live discovery of STS v2 API: models -> nodes -> properties -> terms, and tags.
-Returns a structured dict used to fill path/query parameters when generating tests.
+Live discovery against STS: walk models → nodes → properties → terms to populate test data.
+
+The returned dict keys (``model_handle``, ``node_handle``, ``term_value``, etc.) feed
+``generate_cases`` so positive GETs use real handles. Also probes tags and model-PVS.
 """
 from urllib.parse import quote
 
@@ -9,9 +11,16 @@ from .client import APIClient
 
 def discover(client: APIClient, base_path: str = "/v2") -> dict:
     """
-    Discover test data from the API. Base_path is the path prefix (e.g. /v2);
-    client.base_url should already end with base_path (e.g. https://sts.cancer.gov/v2).
-    Paths used in requests are relative to base_url, so we use /models/, /tags/, etc.
+    Call the API sequentially to collect handles and sample term/tag values.
+
+    Args:
+        client: Configured with base URL ending in ``/v2`` (or matching ``base_path``).
+        base_path: Used only to choose relative paths (``/models/`` vs prefixed).
+
+    Returns:
+        Partial dict on failure (e.g. empty if ``GET /models/`` fails). On success
+        includes at least ``model_handle``, ``model_version``, and often
+        ``node_handle``, ``prop_handle``, ``term_value``, ``tag_key``/``tag_value``.
     """
     data = {}
     # Paths are relative to client.base_url which ends with /v2 -> use /models/ not /v2/models/

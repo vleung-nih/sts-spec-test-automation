@@ -1,12 +1,15 @@
 """
-Aggregate test results into coverage matrix and write JSON summary.
+Roll up per-case results into summary stats and emit machine-readable JSON reports.
 """
 from pathlib import Path
 
 
 def aggregate_results(results: list[dict]) -> dict:
     """
-    Build summary: total, passed, failed, by tag, by endpoint, durations.
+    Compute totals, per-tag pass counts, per-operation last result, P95 latency, error list.
+
+    Returns:
+        Dict suitable for embedding in JSON/HTML reports.
     """
     total = len(results)
     passed = sum(1 for r in results if r.get("passed"))
@@ -45,7 +48,7 @@ def aggregate_results(results: list[dict]) -> dict:
 
 
 def write_json_report(summary: dict, results: list[dict], out_path: str | Path) -> None:
-    """Write JSON report with summary and full results."""
+    """Serialize ``{"summary": ..., "results": [...]}`` to ``out_path`` (UTF-8, indented)."""
     path = Path(out_path)
     path.parent.mkdir(parents=True, exist_ok=True)
     payload = {"summary": summary, "results": results}
