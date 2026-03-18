@@ -548,7 +548,7 @@ Use the JSON for metrics and automation; use the HTML for quick inspection.
 
 ### 8.2 Running in CI (e.g. GitHub Actions)
 
-This repo includes a ready-to-use workflow in `.github/workflows/sts-tests.yml` that runs on push and pull request to `main`/`master`, uses STS QA by default, and uploads reports as artifacts.
+This repo includes a ready-to-use workflow in `.github/workflows/sts-tests.yml` that runs on push and pull request to `main`/`master`. It uses **STS prod** (`https://sts.cancer.gov/v2`) because the QA host is not reachable from GitHub's hosted runners; override via the repository variable `STS_BASE_URL` if needed. Reports are uploaded as artifacts.
 
 Example (for reference or custom workflows):
 

@@ -1,5 +1,8 @@
 # Run STS v2 API test framework on push and pull requests.
 # Uses first model from /models/; reports are uploaded as artifacts.
+#
+# sts-qa.cancer.gov is not reachable from GitHub's hosted runners; we use prod (sts.cancer.gov).
+# Override via repository variable STS_BASE_URL if needed.
 name: STS API tests
 
 on:
@@ -25,10 +28,10 @@ jobs:
       - name: Run STS tests
         id: run-tests
         env:
-          # Default: STS QA. Override via repo variable STS_BASE_URL (Settings → Variables) if needed.
+          # Default: STS prod (QA not reachable from hosted runners). Override via repo variable STS_BASE_URL if needed.
           STS_BASE_URL: ${{ vars.STS_BASE_URL }}
         run: |
-          export STS_BASE_URL="${STS_BASE_URL:-https://sts-qa.cancer.gov/v2}"
+          export STS_BASE_URL="${STS_BASE_URL:-https://sts.cancer.gov/v2}"
           python -m sts_test_framework.cli --report reports/ --quiet
 
       - name: Show failure summary

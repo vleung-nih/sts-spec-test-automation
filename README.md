@@ -107,7 +107,7 @@ python -m sts_test_framework.cli --quiet --report reports/
 
 ## CI / GitHub Actions
 
-Tests run on every push and pull request to `main`/`master`. The workflow is in [.github/workflows/sts-tests.yml](.github/workflows/sts-tests.yml): it installs the package, runs the CLI against STS QA (`https://sts-qa.cancer.gov/v2`), and uploads the `reports/` directory as an artifact so you can download the HTML report from the Actions run. To use a different base URL (e.g. prod), set the repository variable `STS_BASE_URL` in Settings → Secrets and variables → Actions.
+The workflow in [.github/workflows/sts-tests.yml](.github/workflows/sts-tests.yml) runs on every push and PR. It uses **STS prod** (`https://sts.cancer.gov/v2`) because the QA host is not reachable from GitHub's hosted runners. Override the base URL via the repository variable `STS_BASE_URL` in Settings → Secrets and variables → Actions if needed. Reports are uploaded as the `sts-reports` artifact.
 
 ## Dependencies
 
