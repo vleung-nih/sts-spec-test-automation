@@ -32,7 +32,9 @@ def _repo_root() -> Path:
 
 def default_yaml_path() -> Path:
     """Default vendored CTDC YAML (override with ``--yaml``)."""
-    return _repo_root() / "data" / "data-models-yaml" / "ctdc_model_properties_file-2.yaml"
+    #return _repo_root() / "data" / "data-models-yaml" / "ctdc_model_properties_file-2.yaml"
+    return _repo_root() / "data" / "data-models-yaml" / "ctdc_model_properties_file-v1.22.1.yaml"
+
 
 
 def default_report_dir() -> Path:
