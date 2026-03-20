@@ -1,7 +1,11 @@
 """
-Manual tests for GET /terms/model-pvs/{model}/ (all properties with PVS for a model).
+Manual tests for:
 
-Not in bundled OpenAPI as of spec/v2.yaml (only /terms/model-pvs/{model}/{property} is listed).
+- ``GET /terms/model-pvs/{model}/`` — all properties with PVS for a model
+- ``GET /terms/model-pvs/{model}/{property}`` — PVS for one property (query ``version`` optional;
+  same semantics as by-model route; product docs may say ``model_version``)
+
+Bundled ``spec/v2.yaml`` may omit ``GET /terms/model-pvs/{model}/``; property-level path is the documented contract reference.
 
 Behavior verified against live STS:
 - Omitting the version query uses the server's latest model version for that model.
@@ -14,6 +18,13 @@ Tests are **parametrized** over ``MAJOR_MODELS`` (same handles as
 ``model_version`` as ``versions[0]`` from ``GET /model/{handle}/versions`` (same default as
 ``discover(..., use_release_version=False)``), cached **once per model** per session — not full
 ``discover()`` (nodes/properties/terms).
+
+Property-level ``/terms/model-pvs/{model}/{property}`` tests use the **same** ``MAJOR_MODELS``
+list. The **property** handle is chosen by scanning ``GET /terms/model-pvs/{model}/`` (pin version
+first, then latest aggregate) for rows with non-empty ``permissibleValues``, then **probing**
+``GET /terms/model-pvs/{model}/{property}`` with and without ``?version=<versions[0]>`` until
+both return 200 with non-empty PVs (aggregate-only listings can mislead, e.g. ``index_date`` on
+CDS). Session-cached **once per model**; no ``discover()`` walks.
 
 **Console output:** This module prints which endpoints and models are under test. The project
 ``pyproject.toml`` sets ``pytest -s`` so stdout is shown on pass (override with ``--capture=fd``
@@ -90,6 +101,127 @@ def model_pvs_pin_context(api_client):
     return get_context
 
 
+def _ordered_candidate_properties_with_non_empty_pvs(
+    pin_data: object, latest_data: object
+) -> list[str]:
+    """
+    Property handles that appear on the aggregate list with non-empty ``permissibleValues``:
+    pin-aggregate order first, then latest-only additions (stable de-dupe).
+    """
+    out: list[str] = []
+    seen: set[str] = set()
+
+    def add_from(data: object) -> None:
+        if not isinstance(data, list):
+            return
+        for item in data:
+            if not isinstance(item, dict):
+                continue
+            prop = item.get("property")
+            if not prop or len(item.get("permissibleValues") or []) == 0:
+                continue
+            s = prop if isinstance(prop, str) else str(prop)
+            if s not in seen:
+                seen.add(s)
+                out.append(s)
+
+    add_from(pin_data)
+    add_from(latest_data)
+    return out
+
+
+def _property_response_total_pvs(body: object) -> int:
+    if not isinstance(body, list):
+        return 0
+    return sum(
+        len(row.get("permissibleValues") or [])
+        for row in body
+        if isinstance(row, dict)
+    )
+
+
+def _first_property_working_on_both_property_routes(
+    api_client, model_handle: str, pin_ver: str, candidates: list[str]
+) -> str | None:
+    """
+    Aggregate rows can list PVs for a property while ``GET .../{property}`` still fails
+    (e.g. unversioned vs pin); require 200 + non-empty PVs on **both** calls.
+    """
+    for prop in candidates:
+        path = (
+            f"/terms/model-pvs/{quote(model_handle, safe='')}/"
+            f"{quote(prop, safe='')}"
+        )
+        r_u = api_client.get(path)
+        if r_u.status_code != 200 or _property_response_total_pvs(r_u.json()) == 0:
+            continue
+        r_p = api_client.get(path, params={"version": pin_ver})
+        if r_p.status_code != 200 or _property_response_total_pvs(r_p.json()) == 0:
+            continue
+        return prop
+    return None
+
+
+def _fetch_model_property_context(api_client, td_pin: dict) -> dict:
+    """
+    Pick a property that works on ``GET /terms/model-pvs/{model}/{property}`` both **without**
+    ``version`` (latest) and with ``version=<versions[0]>`` (pin), with non-empty PVs — not
+    only what the aggregate JSON suggests.
+    """
+    m = td_pin["model_handle"]
+    pin_ver = td_pin["model_version"]
+    agg_path = f"/terms/model-pvs/{quote(m, safe='')}/"
+
+    pin_json: object = None
+    r_pin = api_client.get(agg_path, params={"version": pin_ver})
+    if r_pin.status_code == 200:
+        pin_json = r_pin.json()
+
+    latest_json: object = None
+    r_latest = api_client.get(agg_path)
+    if r_latest.status_code == 200:
+        latest_json = r_latest.json()
+
+    candidates = _ordered_candidate_properties_with_non_empty_pvs(pin_json, latest_json)
+    if not candidates:
+        pytest.skip(
+            f"No aggregate row with non-empty permissibleValues for model {m!r} "
+            f"(tried version={pin_ver!r} and without version)"
+        )
+
+    prop = _first_property_working_on_both_property_routes(
+        api_client, m, pin_ver, candidates
+    )
+    if not prop:
+        pytest.skip(
+            f"No property passes property-level GET for model {m!r} with both "
+            f"omit-version and version={pin_ver!r} after scanning aggregate candidates"
+        )
+
+    return {
+        "model_handle": m,
+        "model_version": pin_ver,
+        "prop_handle": prop,
+    }
+
+
+@pytest.fixture(scope="session")
+def model_pvs_property_context(api_client, model_pvs_pin_context):
+    """
+    Session cache: pin + aggregate scan per MAJOR_MODELS (reuses ``model_pvs_pin_context`` for
+    ``/versions``), shared across the three property-level tests.
+    """
+    cache: dict[str, dict] = {}
+
+    def get_property_context(model_handle: str) -> dict:
+        if model_handle not in cache:
+            td_pin = model_pvs_pin_context(model_handle)
+            cache[model_handle] = _fetch_model_property_context(api_client, td_pin)
+        return cache[model_handle]
+
+    return get_property_context
+
+
 def _assert_permissible_value(pv: dict) -> None:
     """
     Assert one element inside ``permissibleValues`` matches the expected STS shape.
@@ -107,6 +239,80 @@ def _assert_permissible_value(pv: dict) -> None:
     assert "ncit_concept_code" in pv, "permissible value missing 'ncit_concept_code'"
     assert "synonyms" in pv, "permissible value missing 'synonyms'"
     assert isinstance(pv["synonyms"], list), "synonyms must be a list"
+
+
+def _assert_permissible_value_property_endpoint(pv: dict) -> None:
+    """
+    PV shape for property-level ``/terms/model-pvs/{model}/{property}``.
+
+    STS may return ``ncit_concept_code: null`` and empty ``synonyms`` for some values (e.g. enum
+    aliases); ``value`` is still required.
+    """
+    assert isinstance(pv, dict), f"permissible value must be dict, got {type(pv).__name__}"
+    assert "value" in pv, "permissible value missing 'value'"
+    assert isinstance(pv["value"], str), "'value' must be a string"
+    assert "ncit_concept_code" in pv, "permissible value missing 'ncit_concept_code' key"
+    assert "synonyms" in pv, "permissible value missing 'synonyms'"
+    assert isinstance(pv["synonyms"], list), "synonyms must be a list"
+
+
+def _assert_property_level_response(
+    data: list,
+    expected_model: str,
+    expected_property: str,
+    expected_version: str | None = None,
+) -> None:
+    """Assert JSON array from property-scoped model-pvs: each row matches model/property; optional version."""
+    assert isinstance(data, list), "response must be a JSON array"
+    assert len(data) > 0, "expected at least one row in property-level model-pvs response"
+    for item in data:
+        assert isinstance(item, dict), "each row must be an object"
+        for key in ("model", "property", "version"):
+            assert key in item, f"row missing {key!r}"
+            assert isinstance(item[key], str), f"{key} must be str"
+        assert item["model"] == expected_model
+        assert item["property"] == expected_property
+        if expected_version is not None:
+            assert item["version"] == expected_version, (
+                f"expected version {expected_version!r}, got {item['version']!r}"
+            )
+        assert "permissibleValues" in item
+        pvs = item["permissibleValues"]
+        assert isinstance(pvs, list), "permissibleValues must be a list"
+        for pv in pvs:
+            _assert_permissible_value_property_endpoint(pv)
+
+
+def _normalize_property_pvs_payload(data: list) -> list:
+    """Sort rows and nested permissibleValues for stable deep comparison."""
+    out: list[dict] = []
+    for item in data:
+        if not isinstance(item, dict):
+            continue
+        d = dict(item)
+        pvs = list(d.get("permissibleValues") or [])
+        d["permissibleValues"] = sorted(
+            pvs,
+            key=lambda x: (
+                (x or {}).get("value") or "",
+                str((x or {}).get("ncit_concept_code")),
+            ),
+        )
+        out.append(d)
+    return sorted(
+        out,
+        key=lambda x: (x.get("property") or "", x.get("version") or ""),
+    )
+
+
+def _print_property_pvs_header(name: str, api_client, model: str, prop: str, td: dict | None) -> None:
+    print("\n" + "=" * 72)
+    print(f"  {name}")
+    print(f"  STS_BASE_URL (effective): {api_client.base_url}")
+    print(f"  model: {model!r}  property (aggregate + property GET ok): {prop!r}")
+    if td:
+        print(f"  pin model_version (for ?version=): {td.get('model_version')!r}")
+    print("=" * 72)
 
 
 def _assert_item_shape(item: dict) -> None:
@@ -348,4 +554,159 @@ def test_model_pvs_by_model_unversioned_matches_explicit_latest_version(
     logger.info(
         "test_model_pvs_by_model_unversioned_matches_explicit_latest_version: rows=%s",
         len(unversioned),
+    )
+
+
+# --- GET /terms/model-pvs/{model}/{property} --------------------------------
+
+
+def _require_property_context(model_pvs_property_context, model_handle: str):
+    """Cached pin + property from aggregate; see ``_fetch_model_property_context``."""
+    ctx = model_pvs_property_context(model_handle)
+    return (
+        ctx["model_handle"],
+        ctx["prop_handle"],
+        {"model_handle": ctx["model_handle"], "model_version": ctx["model_version"]},
+    )
+
+
+@pytest.mark.parametrize("model_handle", MAJOR_MODELS)
+def test_terms_model_pvs_property_latest(
+    api_client, model_handle, model_pvs_property_context
+):
+    """
+    Property-level model-pvs **without** ``version``: row ``version`` should match
+    ``GET /model/{handle}/latest-version`` (same idea as by-model latest test).
+    """
+    model_handle, property_handle, td = _require_property_context(
+        model_pvs_property_context, model_handle
+    )
+
+    _print_property_pvs_header(
+        "test_terms_model_pvs_property_latest",
+        api_client,
+        model_handle,
+        property_handle,
+        td,
+    )
+
+    latest_path = f"/model/{quote(model_handle, safe='')}/latest-version"
+    print(f"  GET (latest ground truth): {_full_url(api_client.base_url, latest_path)}")
+    latest_res = api_client.get(latest_path)
+    assert latest_res.status_code == 200, (
+        f"GET {latest_path}: expected 200, got {latest_res.status_code}"
+    )
+    lv = latest_res.json()
+    assert isinstance(lv, dict) and isinstance(lv.get("version"), str) and lv["version"].strip()
+    expected_latest = lv["version"].strip()
+    print(f"  latest-version -> {expected_latest!r}")
+
+    path = (
+        f"/terms/model-pvs/{quote(model_handle, safe='')}/"
+        f"{quote(property_handle, safe='')}"
+    )
+    print(f"  GET (no version query): {_full_url(api_client.base_url, path)}")
+    response = api_client.get(path)
+    if response.status_code != 200:
+        pytest.skip(
+            f"GET {path} returned {response.status_code} (property may be missing for this model)"
+        )
+    data = response.json()
+    _assert_property_level_response(data, model_handle, property_handle, expected_latest)
+
+    total_pvs = sum(len(item.get("permissibleValues") or []) for item in data)
+    assert total_pvs > 0, "expected at least one permissible value for this property"
+    print(f"  PASS: {len(data)} row(s), {total_pvs} permissible value(s), version={expected_latest!r}")
+    logger.info(
+        "test_terms_model_pvs_property_latest: model=%s property=%s rows=%s",
+        model_handle,
+        property_handle,
+        len(data),
+    )
+
+
+@pytest.mark.parametrize("model_handle", MAJOR_MODELS)
+def test_terms_model_pvs_property_pinned_version(
+    api_client, model_handle, model_pvs_property_context
+):
+    """
+    Property-level model-pvs **with** ``version=<versions[0]>`` (same pin as by-model tests).
+    """
+    model_handle, property_handle, td = _require_property_context(
+        model_pvs_property_context, model_handle
+    )
+    model_version = td["model_version"]
+
+    _print_property_pvs_header(
+        "test_terms_model_pvs_property_pinned_version",
+        api_client,
+        model_handle,
+        property_handle,
+        td,
+    )
+
+    path = (
+        f"/terms/model-pvs/{quote(model_handle, safe='')}/"
+        f"{quote(property_handle, safe='')}"
+    )
+    params = {"version": model_version}
+    print(f"  GET (pinned): {_full_url(api_client.base_url, path, params=params)}")
+    print("  Note: query param is ``version`` (not ``model_version``) on STS.")
+    response = api_client.get(path, params=params)
+    if response.status_code != 200:
+        pytest.skip(
+            f"GET {path}?version= returned {response.status_code} "
+            f"(property or version may be unavailable)"
+        )
+    data = response.json()
+    _assert_property_level_response(data, model_handle, property_handle, model_version)
+    print(f"  PASS: all rows use version {model_version!r}")
+    logger.info(
+        "test_terms_model_pvs_property_pinned_version: model=%s property=%s",
+        model_handle,
+        property_handle,
+    )
+
+
+@pytest.mark.parametrize("model_handle", MAJOR_MODELS)
+def test_terms_model_pvs_property_unversioned_matches_explicit_latest(
+    api_client, model_handle, model_pvs_property_context
+):
+    """Omitting ``version`` equals ``version=<version from first row>`` (normalized compare)."""
+    model_handle, property_handle, td = _require_property_context(
+        model_pvs_property_context, model_handle
+    )
+
+    _print_property_pvs_header(
+        "test_terms_model_pvs_property_unversioned_matches_explicit_latest",
+        api_client,
+        model_handle,
+        property_handle,
+        td,
+    )
+
+    path = (
+        f"/terms/model-pvs/{quote(model_handle, safe='')}/"
+        f"{quote(property_handle, safe='')}"
+    )
+    r1 = api_client.get(path)
+    if r1.status_code != 200:
+        pytest.skip(f"GET {path} returned {r1.status_code}")
+    unversioned = r1.json()
+    assert isinstance(unversioned, list) and len(unversioned) > 0
+    latest_ver = unversioned[0]["version"]
+
+    r2 = api_client.get(path, params={"version": latest_ver})
+    assert r2.status_code == 200, f"explicit version GET failed: {r2.status_code}"
+    explicit = r2.json()
+    assert isinstance(explicit, list) and len(explicit) == len(unversioned)
+
+    nu = _normalize_property_pvs_payload(unversioned)
+    ne = _normalize_property_pvs_payload(explicit)
+    assert nu == ne, "unversioned and explicit latest payloads differ after normalize"
+    print("  PASS: normalized payloads match (omit version == version=<row0 version>)")
+    logger.info(
+        "test_terms_model_pvs_property_unversioned_matches_explicit_latest: %s/%s",
+        model_handle,
+        property_handle,
     )
