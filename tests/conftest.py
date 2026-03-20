@@ -6,6 +6,12 @@ import pytest
 from pathlib import Path
 
 
+def pytest_report_header(config):
+    """Add STS environment (base URL) to the pytest run header."""
+    base_url = os.getenv("STS_BASE_URL", "https://sts-qa.cancer.gov/v2")
+    return f"STS environment: {base_url}"
+
+
 def _spec_path():
     """Absolute path to bundled ``spec/v2.yaml`` under the package root."""
     root = Path(__file__).resolve().parent.parent
@@ -30,7 +36,7 @@ def spec(spec_path):
 @pytest.fixture(scope="session")
 def base_url():
     """STS API root including ``/v2`` (overridable via ``STS_BASE_URL``)."""
-    return os.getenv("STS_BASE_URL", "https://sts.cancer.gov/v2")
+    return os.getenv("STS_BASE_URL", "https://sts-qa.cancer.gov/v2")
 
 
 @pytest.fixture(scope="session")
