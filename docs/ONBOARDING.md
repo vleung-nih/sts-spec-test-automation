@@ -119,7 +119,7 @@ The runner sends `GET base_url + path` with the given `params`, then asserts tha
 
 ### 3.5 Base URL and path normalization
 
-The spec’s paths are written like `/v2/models/` or `/v2/id/{id}`. The **base URL** we use in tests is the full base including `/v2`, e.g. `https://sts.cancer.gov/v2`. So when we send a request, we don’t send the path `/v2/models/` again; we **normalize** it to `/models/` and the client does `base_url + path` → `https://sts.cancer.gov/v2/models/`. The **loader**’s `normalize_path_for_base()` does this stripping so that the same spec works whether the server is mounted at `/v2` or elsewhere.
+The spec’s paths are written like `/v2/models/` or `/v2/id/{id}`. The **base URL** we use in tests is the full base including `/v2`, e.g. `https://sts-qa.cancer.gov/v2` (default). So when we send a request, we don’t send the path `/v2/models/` again; we **normalize** it to `/models/` and the client does `base_url + path` → `https://sts-qa.cancer.gov/v2/models/`. The **loader**’s `normalize_path_for_base()` does this stripping so that the same spec works whether the server is mounted at `/v2` or elsewhere.
 
 ---
 
@@ -149,11 +149,14 @@ sts-test-framework-agent/
 │       └── html_report.py     # Write HTML report
 ├── tests/
 │   ├── conftest.py            # Pytest fixtures: spec, api_client, test_data, generated_cases
-│   ├── test_manual/           # Hand-written tests (e.g. root, consistency)
-│   │   └── test_root.py
+│   ├── test_manual/           # Hand-written tests (e.g. /id by type, model-pvs dedup)
+│   │   ├── test_id_by_type.py
+│   │   └── test_model_pvs_no_duplicates.py
 │   └── test_generated/        # Dynamic tests: one test per generated case
 │       └── test_from_spec.py   # Uses pytest_generate_tests to parametrize by case
+├── data/data-models-yaml/     # Vendored property YAML; sts-*-term-verify per commons
 ├── reports/                   # Default output for timestamped report_*.json and report_*.html
+│   └── term_value/            # YAML-driven term-by-value reports (CCDI, C3DC, CTDC, ICDC, CDS, CCDI-DCC, …)
 └── docs/
     ├── ONBOARDING.md          # This document
     └── FRAMEWORK.md           # Short pointer to this doc
@@ -164,7 +167,7 @@ sts-test-framework-agent/
 - **spec/** – Keeps the API contract in one place; the rest of the code only reads it.
 - **src/sts_test_framework/** – Reusable library: loader, client, discover, generator, runners, reporters. The CLI and pytest both use these.
 - **tests/conftest.py** – Shared fixtures so that both manual and generated tests get the same `api_client` and `test_data` without repeating setup.
-- **test_manual/** vs **test_generated/** – Manual tests are for things that don’t fit the “one endpoint, one positive/negative case” pattern (e.g. root health, cross-endpoint consistency). Generated tests are the bulk of coverage and come from the spec.
+- **test_manual/** vs **test_generated/** – Manual tests are for things that don’t fit the “one endpoint, one positive/negative case” pattern (e.g. `/id` by entity type, model-PVS duplicate checks). **Full term-by-value coverage per commons** (YAML → enrich → verify) is run via **`sts-ccdi-term-verify`**, **`sts-c3dc-term-verify`**, **`sts-ctdc-term-verify`**, **`sts-icdc-term-verify`**, **`sts-cds-term-verify`**, **`sts-ccdi-dcc-term-verify`**, etc., not pytest. Generated tests are the bulk of coverage and come from the spec.
 
 ---
 
@@ -224,7 +227,7 @@ It is a **template** that lists the variable names and shows example values (com
 
 | Variable         | Meaning                                                                                        | Default                        |
 | ---------------- | ---------------------------------------------------------------------------------------------- | ------------------------------ |
-| `STS_BASE_URL`   | Base URL of the STS v2 API (used for all requests)                                             | `https://sts.cancer.gov/v2`    |
+| `STS_BASE_URL`   | Base URL of the STS v2 API (used for all requests)                                             | `https://sts-qa.cancer.gov/v2` |
 | `STS_QA_URL`     | QA base URL (used only if you add code that switches to QA for certain tests)                  | `https://sts-qa.cancer.gov/v2` |
 | `STS_SSL_VERIFY` | Set to `false` to disable SSL certificate verification (e.g. local/dev with self-signed certs) | `true`                         |
 | `REPORT_DIR`     | Directory where the CLI writes timestamped `report_YYYY-MM-DDTHH-MM-SS.json` and `.html` (each run gets its own files) | `reports`                      |
@@ -241,7 +244,7 @@ The **same tests** run against any environment; only the **base URL** (and optio
 
 | Environment | Typical use                | Set `STS_BASE_URL` to (example)              |
 | ----------- | -------------------------- | -------------------------------------------- |
-| **Prod**    | Final validation           | `https://sts.cancer.gov/v2` (default)        |
+| **Prod**    | Final validation           | `https://sts.cancer.gov/v2`                  |
 | **Stage**   | Pre-release checks         | `https://sts-stage.cancer.gov/v2`            |
 | **QA**      | Feature testing, debugging | `https://sts-qa.cancer.gov/v2`               |
 | **Local**   | Dev server                 | `http://localhost:8000/v2` (or your dev URL) |

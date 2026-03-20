@@ -22,7 +22,7 @@ pip install -e .
 
 Copy `config/env.example` and set:
 
-- `STS_BASE_URL` – STS v2 base URL (default: `https://sts.cancer.gov/v2`)
+- `STS_BASE_URL` – STS v2 base URL (default: `https://sts-qa.cancer.gov/v2`)
 - `STS_QA_URL` – QA base URL if needed
 - `STS_SSL_VERIFY` – Set to `false` to disable SSL verification
 - `REPORT_DIR` – Report output directory (default: `reports/`)
@@ -46,7 +46,7 @@ pytest tests/ -v --report reports/
 **Via CLI:**
 
 ```bash
-python -m sts_test_framework.cli --spec spec/v2.yaml --base-url https://sts.cancer.gov/v2 --report reports/
+python -m sts_test_framework.cli --spec spec/v2.yaml --base-url https://sts-qa.cancer.gov/v2 --report reports/
 ```
 
 **Test a specific data model** (e.g. PSDC, CTDC) and use the **latest release version** (no pre-release hash):
@@ -84,6 +84,35 @@ Use minimal output (e.g. for CI):
 python -m sts_test_framework.cli --quiet --report reports/
 ```
 
+### Term-by-value verification (YAML → enrich → verify)
+
+Ports of `termValue_verification_scripts`: vendored property YAML → extract enums → enrich via STS → verify `GET .../term/{termValue}`. **Most models** use paginated `/terms` to map YAML handle→API **value** for the URL. **CDS** uses YAML **enum_value** in the URL (no `/terms` step); see [data/data-models-yaml/README.md](data/data-models-yaml/README.md).
+
+| Commons | CLI | YAML | Output |
+|---------|-----|------|--------|
+| CCDI | `sts-ccdi-term-verify` | `data/data-models-yaml/ccdi-model-props.yml` | `reports/term_value/CCDI/` |
+| C3DC | `sts-c3dc-term-verify` | `data/data-models-yaml/c3dc-model-props.yml` | `reports/term_value/C3DC/` |
+| CTDC | `sts-ctdc-term-verify` | `data/data-models-yaml/ctdc_model_properties_file-2.yaml` | `reports/term_value/CTDC/` |
+| ICDC | `sts-icdc-term-verify` | `data/data-models-yaml/icdc-model-props.yml` | `reports/term_value/ICDC/` |
+| CDS | `sts-cds-term-verify` | `data/data-models-yaml/cds-model-props-4.yml` | `reports/term_value/CDS/` |
+| CCDI-DCC | `sts-ccdi-dcc-term-verify` | `data/data-models-yaml/ccdi-dcc-model-props-3.yml` | `reports/term_value/CCDI-DCC/` |
+
+```bash
+pip install -e .
+sts-ccdi-term-verify
+sts-c3dc-term-verify
+sts-ctdc-term-verify
+sts-icdc-term-verify
+sts-cds-term-verify
+sts-ccdi-dcc-term-verify
+```
+
+- **`--limit N`** — verify only N rows (quick check).
+- **`--warn-only`** — exit 0 even if some rows fail (reports still list failures).
+- **`STS_BASE_URL`** — same as other tools (default QA).
+
+See [data/data-models-yaml/README.md](data/data-models-yaml/README.md) and [reports/term_value/](reports/term_value/) per commons (CCDI, C3DC, CTDC, ICDC, CDS, CCDI-DCC).
+
 ## Project layout
 
 | Path | Purpose |
@@ -94,13 +123,20 @@ python -m sts_test_framework.cli --quiet --report reports/
 | `tests/test_manual/` | Manual tests (e.g. root, consistency) |
 | `tests/test_generated/` | Dynamic tests parametrized from generated cases |
 | `reports/` | Default output for timestamped report files (`report_YYYY-MM-DDTHH-MM-SS.json`, `.html`) |
+| `reports/term_value/CCDI/` | CCDI term verification CSV/MD (`sts-ccdi-term-verify`) |
+| `reports/term_value/C3DC/` | C3DC term verification CSV/MD (`sts-c3dc-term-verify`) |
+| `reports/term_value/CTDC/` | CTDC term verification CSV/MD (`sts-ctdc-term-verify`) |
+| `reports/term_value/ICDC/` | ICDC term verification CSV/MD (`sts-icdc-term-verify`) |
+| `reports/term_value/CDS/` | CDS term verification CSV/MD (`sts-cds-term-verify`) |
+| `reports/term_value/CCDI-DCC/` | CCDI-DCC term verification CSV/MD (`sts-ccdi-dcc-term-verify`) |
+| `data/data-models-yaml/` | Vendored property YAMLs for term-by-value CLIs |
 | `scripts/run_all_models.py` | Run CLI once per data model (CDS, CCDI, CCDI-DCC, ICDC, CTDC, C3DC, PSDC); reports in `reports/<model>/` |
 | `docs/ONBOARDING.md` | Full onboarding: concepts, structure, run, add tests, glossary |
 | `docs/FRAMEWORK.md` | Short summary and pointer to ONBOARDING |
 
 ## Extending the framework
 
-- **Add manual tests**: Add modules under `tests/test_manual/` and use the `api_client` and `test_data` fixtures.
+- **Add manual tests**: Add modules under `tests/test_manual/` and use the `api_client` and `test_data` fixtures. In `test_model_pvs_no_duplicates.py`, `test_model_pvs_no_duplicate_permissible_values` covers major models (C3DC, CCDI, CCDI-DCC, ICDC, CTDC, CDS, PSDC); `test_model_pvs_no_duplicates_bug_ticket_endpoints` pins specific model/property/version pairs from the original dedup bug ticket.
 - **Adjust discovery**: Edit `src/sts_test_framework/discover.py` to change how test data is discovered.
 - **Adjust generation**: Edit `src/sts_test_framework/generator.py` to add or change positive/negative cases (e.g. query param validation).
 - **Contract validation**: Use the optional `runners.contract.run_contract_tests` and install `jsonschema` (and optionally `openapi-spec-validator`).
