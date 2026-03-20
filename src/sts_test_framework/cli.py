@@ -109,11 +109,14 @@ def main() -> None:
         path = result.get("path_display") or result.get("path", "")
         duration = result.get("duration")
         duration_ms = f"{duration * 1000:.0f} ms" if duration is not None else "?"
+        note = result.get("pagination_pair_display_note")
+        suffix = f" — {note}" if note else ""
+
         if result.get("passed"):
-            log(f"  [Pass] GET {path} ({duration_ms})")
+            log(f"  [Pass] GET {path} ({duration_ms}){suffix}")
         else:
             err = (result.get("error") or "")[:80]
-            log(f"  [Fail] GET {path} - {err}")
+            log(f"  [Fail] GET {path} ({duration_ms}) - {err}")
 
     if quiet:
         print(f"Running {len(cases)} test cases...", flush=True)

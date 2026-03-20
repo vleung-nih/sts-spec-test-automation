@@ -4,7 +4,7 @@ OpenAPI-driven end-to-end API test automation framework for the **Simple Termino
 
 ## Purpose
 
-- **95%+ endpoint coverage**: All v2 paths get at least one positive and, where applicable, one negative test.
+- **Endpoint coverage**: All v2 paths get at least one positive and, where applicable, one negative test.
 - **Spec-driven**: Tests are derived from the spec so that spec changes can be reflected by re-running the generator.
 - **Functional + negative**: Validates status codes and basic response shape; includes 404/422 negative cases.
 - **CI-ready**: Run via `pytest` or the CLI; configurable base URL and report output.
@@ -88,14 +88,16 @@ python -m sts_test_framework.cli --quiet --report reports/
 
 Ports of `termValue_verification_scripts`: vendored property YAML → extract enums → enrich via STS → verify `GET .../term/{termValue}`. **Most models** use paginated `/terms` to map YAML handle→API **value** for the URL. **CDS** uses YAML **enum_value** in the URL (no `/terms` step); see [data/data-models-yaml/README.md](data/data-models-yaml/README.md).
 
-| Commons | CLI | YAML | Output |
-|---------|-----|------|--------|
-| CCDI | `sts-ccdi-term-verify` | `data/data-models-yaml/ccdi-model-props.yml` | `reports/term_value/CCDI/` |
-| C3DC | `sts-c3dc-term-verify` | `data/data-models-yaml/c3dc-model-props.yml` | `reports/term_value/C3DC/` |
-| CTDC | `sts-ctdc-term-verify` | `data/data-models-yaml/ctdc_model_properties_file-2.yaml` | `reports/term_value/CTDC/` |
-| ICDC | `sts-icdc-term-verify` | `data/data-models-yaml/icdc-model-props.yml` | `reports/term_value/ICDC/` |
-| CDS | `sts-cds-term-verify` | `data/data-models-yaml/cds-model-props-4.yml` | `reports/term_value/CDS/` |
-| CCDI-DCC | `sts-ccdi-dcc-term-verify` | `data/data-models-yaml/ccdi-dcc-model-props-3.yml` | `reports/term_value/CCDI-DCC/` |
+
+| Commons  | CLI                        | YAML                                                      | Output                         |
+| -------- | -------------------------- | --------------------------------------------------------- | ------------------------------ |
+| CCDI     | `sts-ccdi-term-verify`     | `data/data-models-yaml/ccdi-model-props.yml`              | `reports/term_value/CCDI/`     |
+| C3DC     | `sts-c3dc-term-verify`     | `data/data-models-yaml/c3dc-model-props.yml`              | `reports/term_value/C3DC/`     |
+| CTDC     | `sts-ctdc-term-verify`     | `data/data-models-yaml/ctdc_model_properties_file-2.yaml` | `reports/term_value/CTDC/`     |
+| ICDC     | `sts-icdc-term-verify`     | `data/data-models-yaml/icdc-model-props.yml`              | `reports/term_value/ICDC/`     |
+| CDS      | `sts-cds-term-verify`      | `data/data-models-yaml/cds-model-props-4.yml`             | `reports/term_value/CDS/`      |
+| CCDI-DCC | `sts-ccdi-dcc-term-verify` | `data/data-models-yaml/ccdi-dcc-model-props-3.yml`        | `reports/term_value/CCDI-DCC/` |
+
 
 ```bash
 pip install -e .
@@ -107,37 +109,41 @@ sts-cds-term-verify
 sts-ccdi-dcc-term-verify
 ```
 
-- **`--limit N`** — verify only N rows (quick check).
-- **`--warn-only`** — exit 0 even if some rows fail (reports still list failures).
-- **`STS_BASE_URL`** — same as other tools (default QA).
+- `**--limit N**` — verify only N rows (quick check).
+- `**--warn-only**` — exit 0 even if some rows fail (reports still list failures).
+- `**STS_BASE_URL**` — same as other tools (default QA).
 
 See [data/data-models-yaml/README.md](data/data-models-yaml/README.md) and [reports/term_value/](reports/term_value/) per commons (CCDI, C3DC, CTDC, ICDC, CDS, CCDI-DCC).
 
 ## Project layout
 
-| Path | Purpose |
-|------|---------|
-| `spec/v2.yaml` | OpenAPI 3.1 spec for STS v2 (source of truth) |
-| `src/sts_test_framework/` | Framework code: loader, client, discover, generator, runners, reporters, cli |
-| `tests/conftest.py` | Pytest fixtures: spec, api_client, test_data, generated_cases |
-| `tests/test_manual/` | Manual tests (e.g. root, consistency) |
-| `tests/test_generated/` | Dynamic tests parametrized from generated cases |
-| `reports/` | Default output for timestamped report files (`report_YYYY-MM-DDTHH-MM-SS.json`, `.html`) |
-| `reports/term_value/CCDI/` | CCDI term verification CSV/MD (`sts-ccdi-term-verify`) |
-| `reports/term_value/C3DC/` | C3DC term verification CSV/MD (`sts-c3dc-term-verify`) |
-| `reports/term_value/CTDC/` | CTDC term verification CSV/MD (`sts-ctdc-term-verify`) |
-| `reports/term_value/ICDC/` | ICDC term verification CSV/MD (`sts-icdc-term-verify`) |
-| `reports/term_value/CDS/` | CDS term verification CSV/MD (`sts-cds-term-verify`) |
-| `reports/term_value/CCDI-DCC/` | CCDI-DCC term verification CSV/MD (`sts-ccdi-dcc-term-verify`) |
-| `data/data-models-yaml/` | Vendored property YAMLs for term-by-value CLIs |
-| `scripts/run_all_models.py` | Run CLI once per data model (CDS, CCDI, CCDI-DCC, ICDC, CTDC, C3DC, PSDC); reports in `reports/<model>/` |
-| `docs/ONBOARDING.md` | Full onboarding: concepts, structure, run, add tests, glossary |
-| `docs/RUNBOOK.md` | Command cheat sheet: pytest (generated, manual), CLI, term-verify, and which reports to open |
-| `docs/FRAMEWORK.md` | Short summary and pointer to ONBOARDING |
+
+| Path                           | Purpose                                                                                                  |
+| ------------------------------ | -------------------------------------------------------------------------------------------------------- |
+| `spec/v2.yaml`                 | OpenAPI 3.1 spec for STS v2 (source of truth)                                                            |
+| `src/sts_test_framework/`      | Framework code: loader, client, discover, generator, runners, reporters, cli                             |
+| `tests/conftest.py`            | Pytest fixtures: spec, api_client, test_data, generated_cases                                            |
+| `tests/unit/`                  | Unit tests for `functional.py` helpers (mocked responses; no live API)                                   |
+| `tests/test_manual/`           | Manual tests (e.g. root, consistency)                                                                    |
+| `tests/test_generated/`        | Dynamic tests parametrized from generated cases                                                          |
+| `reports/`                     | Default output for timestamped report files (`report_YYYY-MM-DDTHH-MM-SS.json`, `.html`)                 |
+| `reports/term_value/CCDI/`     | CCDI term verification CSV/MD (`sts-ccdi-term-verify`)                                                   |
+| `reports/term_value/C3DC/`     | C3DC term verification CSV/MD (`sts-c3dc-term-verify`)                                                   |
+| `reports/term_value/CTDC/`     | CTDC term verification CSV/MD (`sts-ctdc-term-verify`)                                                   |
+| `reports/term_value/ICDC/`     | ICDC term verification CSV/MD (`sts-icdc-term-verify`)                                                   |
+| `reports/term_value/CDS/`      | CDS term verification CSV/MD (`sts-cds-term-verify`)                                                     |
+| `reports/term_value/CCDI-DCC/` | CCDI-DCC term verification CSV/MD (`sts-ccdi-dcc-term-verify`)                                           |
+| `data/data-models-yaml/`       | Vendored property YAMLs for term-by-value CLIs                                                           |
+| `scripts/run_all_models.py`    | Run CLI once per data model (CDS, CCDI, CCDI-DCC, ICDC, CTDC, C3DC, PSDC); reports in `reports/<model>/` |
+| `docs/ONBOARDING.md`           | Full onboarding: concepts, structure, run, add tests, glossary                                           |
+| `docs/RUNBOOK.md`              | Command cheat sheet: pytest (generated, manual), CLI, term-verify, and which reports to open             |
+| `docs/FRAMEWORK.md`            | Short summary and pointer to ONBOARDING                                                                  |
+
 
 ## Extending the framework
 
 - **Add manual tests**: Add modules under `tests/test_manual/` and use the `api_client` and `test_data` fixtures. In `test_model_pvs_no_duplicates.py`, `test_model_pvs_no_duplicate_permissible_values` covers major models (C3DC, CCDI, CCDI-DCC, ICDC, CTDC, CDS, PSDC); `test_model_pvs_no_duplicates_bug_ticket_endpoints` pins specific model/property/version pairs from the original dedup bug ticket.
+- **Add unit tests**: Add modules under `tests/unit/` for runner logic with `APIResponse` mocks only (see `tests/unit/README.md`).
 - **Adjust discovery**: Edit `src/sts_test_framework/discover.py` to change how test data is discovered.
 - **Adjust generation**: Edit `src/sts_test_framework/generator.py` to add or change positive/negative cases (e.g. query param validation).
 - **Contract validation**: Use the optional `runners.contract.run_contract_tests` and install `jsonschema` (and optionally `openapi-spec-validator`).
@@ -146,3 +152,4 @@ See [data/data-models-yaml/README.md](data/data-models-yaml/README.md) and [repo
 
 - Python 3.9+
 - pytest, pytest-html, PyYAML, jsonschema (see `pyproject.toml`)
+
