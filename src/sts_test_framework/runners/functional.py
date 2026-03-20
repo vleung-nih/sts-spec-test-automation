@@ -5,6 +5,7 @@ Successful 200 responses may be checked for coarse JSON shape (object vs list vs
 """
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import TYPE_CHECKING, Callable
 from urllib.parse import quote
 
@@ -12,6 +13,166 @@ if TYPE_CHECKING:
     from ..client import APIClient
 
 from ..client import APIResponse
+
+_TERMS_NO_VALUE_SET_DETAIL = "Property exists, but does not use an acceptable value set."
+
+
+def _is_acceptable_terms_no_value_set_404(path: str, response: APIResponse) -> bool:
+    """
+    True when ``path`` is a property ``/terms`` or ``/terms/count`` endpoint and the API
+    returns 404 with the standard \"no acceptable value set\" detail (same as single GET).
+    """
+    path_no_query = path.split("?")[0].rstrip("/")
+    if not (path_no_query.endswith("/terms") or path_no_query.endswith("/terms/count")):
+        return False
+    if response.status_code != 404:
+        return False
+    data = response.json()
+    return isinstance(data, dict) and data.get("detail") == _TERMS_NO_VALUE_SET_DETAIL
+
+
+def _special_expected_terms_404_error(response: APIResponse) -> str:
+    """Human-readable error string for an acceptable terms 404 (matches single-request case)."""
+    if response.body:
+        return f"Special expected 404: {response.body}"
+    return (
+        "Acceptable 404 but response body was empty without detail message — "
+        "unexpected; please investigate."
+    )
+
+
+@dataclass(frozen=True)
+class PaginationPairOutcome:
+    """Result of ``_pagination_pair_check`` (two-request pagination slice)."""
+
+    ok: bool
+    error: str | None
+    duration_total: float
+    actual_status: int
+    b_executed: bool
+    duration_a: float
+    duration_b: float
+
+
+def _pagination_pair_check(client: "APIClient", case: dict) -> PaginationPairOutcome:
+    """
+    Two GETs: A with ``pagination_pair_params_a``, B with ``pagination_pair_params_b``.
+
+    If A is a JSON list with ``len >= 2``, require B to be 200 with a list where
+    ``B[0] == A[1]``. Otherwise pass (skip compare).
+
+    ``b_executed`` is True when the second GET was performed. ``duration_a`` / ``duration_b``
+    are per-request durations (``duration_b`` is 0 when B was not called).
+    """
+    path = case.get("path") or ""
+    params_a = case.get("pagination_pair_params_a")
+    params_b = case.get("pagination_pair_params_b")
+    if params_a is None or params_b is None:
+        return PaginationPairOutcome(
+            ok=False,
+            error="pagination_pair: missing pagination_pair_params_a or _b",
+            duration_total=0.0,
+            actual_status=0,
+            b_executed=False,
+            duration_a=0.0,
+            duration_b=0.0,
+        )
+
+    resp_a = client.get(path, params_a)
+    dur_a = resp_a.duration
+    if resp_a.status_code != 200:
+        if _is_acceptable_terms_no_value_set_404(path, resp_a):
+            return PaginationPairOutcome(
+                ok=True,
+                error=_special_expected_terms_404_error(resp_a),
+                duration_total=dur_a,
+                actual_status=resp_a.status_code,
+                b_executed=False,
+                duration_a=dur_a,
+                duration_b=0.0,
+            )
+        return PaginationPairOutcome(
+            ok=False,
+            error=(
+                f"pagination_pair A: expected 200, got {resp_a.status_code}"
+                + (f": {resp_a.body[:200]}" if resp_a.body else "")
+            ),
+            duration_total=dur_a,
+            actual_status=resp_a.status_code,
+            b_executed=False,
+            duration_a=dur_a,
+            duration_b=0.0,
+        )
+
+    data_a = resp_a.json()
+    if not isinstance(data_a, list) or len(data_a) < 2:
+        return PaginationPairOutcome(
+            ok=True,
+            error=None,
+            duration_total=dur_a,
+            actual_status=resp_a.status_code,
+            b_executed=False,
+            duration_a=dur_a,
+            duration_b=0.0,
+        )
+
+    resp_b = client.get(path, params_b)
+    dur_b = resp_b.duration
+    dur_total = dur_a + dur_b
+    if resp_b.status_code != 200:
+        if _is_acceptable_terms_no_value_set_404(path, resp_b):
+            return PaginationPairOutcome(
+                ok=True,
+                error=_special_expected_terms_404_error(resp_b),
+                duration_total=dur_total,
+                actual_status=resp_b.status_code,
+                b_executed=True,
+                duration_a=dur_a,
+                duration_b=dur_b,
+            )
+        return PaginationPairOutcome(
+            ok=False,
+            error=(
+                f"pagination_pair B: expected 200, got {resp_b.status_code}"
+                + (f": {resp_b.body[:200]}" if resp_b.body else "")
+            ),
+            duration_total=dur_total,
+            actual_status=resp_b.status_code,
+            b_executed=True,
+            duration_a=dur_a,
+            duration_b=dur_b,
+        )
+
+    data_b = resp_b.json()
+    if not isinstance(data_b, list) or len(data_b) < 1:
+        return PaginationPairOutcome(
+            ok=False,
+            error=f"pagination_pair B: expected non-empty JSON list, got {data_b!r}",
+            duration_total=dur_total,
+            actual_status=resp_b.status_code,
+            b_executed=True,
+            duration_a=dur_a,
+            duration_b=dur_b,
+        )
+    if data_b[0] != data_a[1]:
+        return PaginationPairOutcome(
+            ok=False,
+            error=f"pagination_pair: B[0] != A[1]: {data_b[0]!r} vs {data_a[1]!r}",
+            duration_total=dur_total,
+            actual_status=resp_b.status_code,
+            b_executed=True,
+            duration_a=dur_a,
+            duration_b=dur_b,
+        )
+    return PaginationPairOutcome(
+        ok=True,
+        error=None,
+        duration_total=dur_total,
+        actual_status=resp_b.status_code,
+        b_executed=True,
+        duration_a=dur_a,
+        duration_b=dur_b,
+    )
 
 
 def _path_with_query(path: str, params: dict | None) -> str:
@@ -56,6 +217,54 @@ def run_functional_tests(
         operation_id = case.get("operation_id", "")
         summary = case.get("summary", "")
 
+        if case.get("pagination_pair_assert"):
+            pair_out = _pagination_pair_check(client, case)
+            params_a = case.get("pagination_pair_params_a")
+            params_b = case.get("pagination_pair_params_b")
+            path_a = _path_with_query(path, params_a) if params_a is not None else _path_with_query(path, params)
+            path_b = _path_with_query(path, params_b) if params_b is not None else path_a
+            # Display row focuses on request B when it ran; otherwise B URL + note (skip) or A URL (A failed first).
+            display_note = None
+            if pair_out.b_executed:
+                path_display = path_b
+                display_duration = pair_out.duration_b
+            elif pair_out.ok:
+                err = pair_out.error or ""
+                if err.startswith("Special expected 404"):
+                    path_display = path_a
+                    display_duration = pair_out.duration_a
+                    display_note = None
+                else:
+                    path_display = path_b
+                    display_duration = pair_out.duration_a
+                    display_note = "B not run (A had <2 items)"
+            else:
+                path_display = path_a
+                display_duration = pair_out.duration_a
+            result = {
+                "operation_id": operation_id,
+                "summary": summary,
+                "path": path,
+                "path_display": path_display,
+                "pagination_pair_display_note": display_note,
+                "pagination_pair_b_executed": pair_out.b_executed,
+                "pagination_pair_wall_time": pair_out.duration_total,
+                "duration_pair_a": pair_out.duration_a,
+                "duration_pair_b": pair_out.duration_b,
+                "params": params,
+                "expected_status": expected_status,
+                "actual_status": pair_out.actual_status,
+                "passed": pair_out.ok,
+                "duration": display_duration,
+                "error": pair_out.error,
+                "tag": case.get("tag"),
+                "negative": case.get("negative", False),
+            }
+            results.append(result)
+            if on_case_done:
+                on_case_done(result)
+            continue
+
         response: APIResponse = client.get(path, params)
 
         passed = response.status_code == expected_status
@@ -66,12 +275,9 @@ def run_functional_tests(
                 error += f": {response.body[:200]}"
             # Property /terms and /terms/count: 404 with "Property exists, but does not use an acceptable value set." is expected when the property has no value set.
             if expected_status == 200 and response.status_code == 404:
-                path_no_query = path.split("?")[0].rstrip("/")
-                if path_no_query.endswith("/terms") or path_no_query.endswith("/terms/count"):
-                    data = response.json()
-                    if isinstance(data, dict) and data.get("detail") == "Property exists, but does not use an acceptable value set.":
-                        passed = True
-                        error = f"Special expected 404: {response.body}" if response.body else "Acceptable 404 but response body was empty without detail message — unexpected; please investigate."
+                if _is_acceptable_terms_no_value_set_404(path, response):
+                    passed = True
+                    error = _special_expected_terms_404_error(response)
 
         # Optional: exact JSON, skip_oob_assert (model-pvs), pagination limit, or shape check for 200
         if passed and (
@@ -187,3 +393,14 @@ def check_response_body_for_case(response: APIResponse, case: dict) -> tuple[boo
     Mirrors the CLI runner’s post-status checks; use from pytest so tests stay aligned.
     """
     return _check_basic_shape(response, case)
+
+
+def check_pagination_pair_for_case(client: "APIClient", case: dict) -> tuple[bool, str | None]:
+    """
+    Run the two-request pagination pair check (same logic as the CLI functional runner).
+
+    Use from pytest when ``case`` has ``pagination_pair_assert``; do not call after a
+    single ``get`` for that case.
+    """
+    out = _pagination_pair_check(client, case)
+    return out.ok, out.error

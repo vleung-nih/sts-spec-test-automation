@@ -16,8 +16,9 @@ Commands to run each kind of test in this repo, what they exercise, and which ar
 
 | Kind | What it is | Typical command | Needs live STS? |
 |------|------------|-----------------|-----------------|
-| **Auto-generated (pytest)** | One parametrized test per generated GET from `spec/v2.yaml` + discovery (includes `__pagination_positive` for routes with both `skip` and `limit`) | `pytest tests/test_generated/ -v` | Yes |
+| **Auto-generated (pytest)** | One parametrized test per generated GET from `spec/v2.yaml` + discovery (includes `__pagination_positive` and `__pagination_pair` where applicable) | `pytest tests/test_generated/ -v` | Yes |
 | **Manual (pytest)** | Hand-written checks (e.g. model-pvs dedup, id-by-type) | `pytest tests/test_manual/ -v` | Yes |
+| **Unit (pytest)** | Runner helpers (`functional.py`) with mocked responses only | `pytest tests/unit/ -v` | No |
 | **CLI functional** | Same cases as generated pytest, run in one process; writes JSON + HTML reports | `python -m sts_test_framework.cli --report reports/` | Yes |
 | **Multi-model CLI** | Runs CLI once per data model | `python scripts/run_all_models.py` | Yes |
 | **Term-by-value** | YAML-driven enum → STS term endpoint verification per commons | `sts-ccdi-term-verify` (etc.) | Yes |
@@ -36,7 +37,7 @@ pip install -e .
 # or: uv sync && uv run ...
 ```
 
-**2. Pytest — full suite (generated + manual + any other tests under `tests/`)**
+**2. Pytest — full suite (generated + manual + unit + any other tests under `tests/`)**
 
 ```bash
 export STS_BASE_URL=https://sts-qa.cancer.gov/v2   # optional; omit to use default QA
@@ -137,6 +138,7 @@ pytest tests/test_manual/ -v
 **What it tests:** Currently:
 
 - [`test_model_pvs_no_duplicates.py`](../tests/test_manual/test_model_pvs_no_duplicates.py) – no duplicate permissible values on `.../terms/model-pvs/...` for major models (and optional bug-ticket pins).
+- [`test_model_pvs_by_model.py`](../tests/test_manual/test_model_pvs_by_model.py) – `GET /terms/model-pvs/{model}/` (parametrized `MAJOR_MODELS`, session-cached `GET /model/{handle}/versions` pin) and **`GET /terms/model-pvs/{model}/{property}`** (same models; `property` = session-cached `discover()` `prop_handle`; optional `version`; PVs may have null `ncit`/empty `synonyms`). Override STS with `STS_BASE_URL` (default QA `https://sts-qa.cancer.gov/v2`).
 - [`test_id_by_type.py`](../tests/test_manual/test_id_by_type.py) – id-by-type behavior.
 
 **Reports:** Terminal only.

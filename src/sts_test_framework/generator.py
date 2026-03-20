@@ -134,7 +134,9 @@ def generate_cases(
     """
     Generate one positive GET case per operation (when discovery can fill path params),
     plus optional positives: ``__pagination_positive`` (``skip=0``, ``limit=1`` when both
-    params exist), optional negatives: bad ``skip``/``limit``, huge ``skip`` (``__skip_oob``),
+    params exist), ``__pagination_pair`` (two GETs: ``skip=0,limit=0`` then ``skip=1,limit=1``,
+    assert ``B[0]==A[1]`` when ``len(A)>=2``; excludes terms model-pvs / cde-pvs), optional
+    negatives: bad ``skip``/``limit``, huge ``skip`` (``__skip_oob``),
     and invalid path params.
 
     Args:
@@ -149,7 +151,9 @@ def generate_cases(
         ``path``, ``params``, ``expected_status``, ``operation_id``, ``summary``,
         ``tag``, ``negative``, ``response_schema_ref``, optional ``expected_json``, and
         optional ``skip_oob_assert`` (e.g. model-pvs empty permissible values), and
-        optional ``pagination_assert_max_items`` for ``__pagination_positive`` cases.
+        optional ``pagination_assert_max_items`` for ``__pagination_positive`` cases, and
+        optional ``pagination_pair_assert`` with ``pagination_pair_params_a`` / ``_b`` for
+        ``__pagination_pair`` cases.
     """
     paths = get_paths(spec)
     cases = []
@@ -207,6 +211,36 @@ def generate_cases(
                     "negative": False,
                     "response_schema_ref": schema_ref,
                     "pagination_assert_max_items": 1,
+                })
+
+            # Pagination pair: A = skip=0, limit=0; B = skip=1, limit=1; assert B[0]==A[1] if len(A)>=2
+            if (
+                200 in response_codes
+                and "skip" in skip_limit_names_pos
+                and "limit" in skip_limit_names_pos
+                and not _is_terms_model_pvs_path(path_template)
+                and not _is_cde_pvs_by_id_pvs_path(path_template)
+            ):
+                pair_a = dict(query_vals) if query_vals else {}
+                pair_a["skip"] = 0
+                pair_a["limit"] = 0
+                pair_b = dict(query_vals) if query_vals else {}
+                pair_b["skip"] = 1
+                pair_b["limit"] = 1
+                cases.append({
+                    "path": path_str,
+                    "params": pair_a,
+                    "expected_status": 200,
+                    "operation_id": f"{operation_id}__pagination_pair",
+                    "summary": (
+                        f"{summary} (pagination pair: A skip=0 limit=0, B skip=1 limit=1)"
+                    ),
+                    "tag": tag,
+                    "negative": False,
+                    "response_schema_ref": schema_ref,
+                    "pagination_pair_assert": True,
+                    "pagination_pair_params_a": pair_a,
+                    "pagination_pair_params_b": pair_b,
                 })
 
             # Bad query param cases (422): valid path, invalid skip/limit

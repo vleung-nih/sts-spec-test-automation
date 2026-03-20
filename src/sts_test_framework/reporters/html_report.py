@@ -43,8 +43,11 @@ def write_html_report(
         status = "Pass" if r.get("passed") else "Fail"
         duration = r.get("duration")
         duration_str = f"{duration * 1000:.0f} ms" if duration is not None else "-"
-        # Path column shows full path including query string (e.g. /model/C3DC/versions?skip=-1&limit=10)
-        path_cell = r.get("path_display") or r.get("path", "")
+        note = r.get("pagination_pair_display_note")
+        if note:
+            duration_str = f"{duration_str} — {_esc(note)}"
+        path_raw = r.get("path_display") or r.get("path", "")
+        path_cell = f"<code>{_esc(path_raw)}</code>"
         rows.append({
             "operation_id": r.get("operation_id", ""),
             "summary": r.get("summary", ""),
@@ -124,7 +127,7 @@ def _template(
         <tr>
             <td>{_esc(r['operation_id'])}</td>
             <td>{_esc(r['summary'])}</td>
-            <td><code>{_esc(r['path'])}</code></td>
+            <td class="path-col">{r['path']}</td>
             <td class="status-{r['status'].lower()}">{r['status']}</td>
             <td>{r['expected']}</td>
             <td>{r['actual']}</td>

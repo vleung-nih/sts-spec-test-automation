@@ -32,7 +32,15 @@ def pytest_generate_tests(metafunc):
 
 def test_generated_case(api_client, case):
     """Assert HTTP status matches case; run body checks like the CLI (200 shape or expected_json)."""
-    from sts_test_framework.runners.functional import check_response_body_for_case
+    from sts_test_framework.runners.functional import (
+        check_pagination_pair_for_case,
+        check_response_body_for_case,
+    )
+
+    if case.get("pagination_pair_assert"):
+        ok, err = check_pagination_pair_for_case(api_client, case)
+        assert ok, err
+        return
 
     path = case.get("path", "")
     params = case.get("params")
