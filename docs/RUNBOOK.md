@@ -138,6 +138,7 @@ pytest tests/test_manual/ -v
 **What it tests:** Currently:
 
 - [`test_model_pvs_no_duplicates.py`](../tests/test_manual/test_model_pvs_no_duplicates.py) – no duplicate permissible values on `.../terms/model-pvs/...` for major models (and optional bug-ticket pins).
+- [`test_model_pvs_by_model.py`](../tests/test_manual/test_model_pvs_by_model.py) – `GET /terms/model-pvs/{model}/` (all properties with PVS): JSON shape, optional `version` query (same param name as property-level model-PVS; not in bundled `spec/v2.yaml`). Parametrized over `MAJOR_MODELS` (same handles as the dedup test); per-model pin via `GET /model/{handle}/versions` (first version, session-cached — not full `discover()`). Override STS with `STS_BASE_URL` (default QA `https://sts-qa.cancer.gov/v2`).
 - [`test_id_by_type.py`](../tests/test_manual/test_id_by_type.py) – id-by-type behavior.
 
 **Reports:** Terminal only.

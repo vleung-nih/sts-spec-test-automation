@@ -124,7 +124,7 @@ See [data/data-models-yaml/README.md](data/data-models-yaml/README.md) and [repo
 | `src/sts_test_framework/`      | Framework code: loader, client, discover, generator, runners, reporters, cli                             |
 | `tests/conftest.py`            | Pytest fixtures: spec, api_client, test_data, generated_cases                                            |
 | `tests/unit/`                  | Unit tests for `functional.py` helpers (mocked responses; no live API)                                   |
-| `tests/test_manual/`           | Manual tests (e.g. root, consistency)                                                                    |
+| `tests/test_manual/`           | Manual tests (e.g. model-PVS by model, dedup, id-by-type)                                                |
 | `tests/test_generated/`        | Dynamic tests parametrized from generated cases                                                          |
 | `reports/`                     | Default output for timestamped report files (`report_YYYY-MM-DDTHH-MM-SS.json`, `.html`)                 |
 | `reports/term_value/CCDI/`     | CCDI term verification CSV/MD (`sts-ccdi-term-verify`)                                                   |
@@ -142,7 +142,7 @@ See [data/data-models-yaml/README.md](data/data-models-yaml/README.md) and [repo
 
 ## Extending the framework
 
-- **Add manual tests**: Add modules under `tests/test_manual/` and use the `api_client` and `test_data` fixtures. In `test_model_pvs_no_duplicates.py`, `test_model_pvs_no_duplicate_permissible_values` covers major models (C3DC, CCDI, CCDI-DCC, ICDC, CTDC, CDS, PSDC); `test_model_pvs_no_duplicates_bug_ticket_endpoints` pins specific model/property/version pairs from the original dedup bug ticket.
+- **Add manual tests**: Add modules under `tests/test_manual/` and use the `api_client` fixture (and `test_data` when you need session discovery). `test_model_pvs_by_model.py` checks `GET /terms/model-pvs/{model}/` (not in bundled spec) for each handle in `MAJOR_MODELS` using a lightweight `GET /model/{handle}/versions` pin (session-cached): response shape, `version` query vs omitting it, and nested permissible values. In `test_model_pvs_no_duplicates.py`, `test_model_pvs_no_duplicate_permissible_values` covers the same major models; `test_model_pvs_no_duplicates_bug_ticket_endpoints` pins specific model/property/version pairs from the original dedup bug ticket.
 - **Add unit tests**: Add modules under `tests/unit/` for runner logic with `APIResponse` mocks only (see `tests/unit/README.md`).
 - **Adjust discovery**: Edit `src/sts_test_framework/discover.py` to change how test data is discovered.
 - **Adjust generation**: Edit `src/sts_test_framework/generator.py` to add or change positive/negative cases (e.g. query param validation).
