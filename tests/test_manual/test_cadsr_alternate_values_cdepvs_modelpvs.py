@@ -41,7 +41,7 @@ HOW TO RUN
 
 ::
 
-    pytest tests/test_manual/test_cadsr_designations_vs_sts_pvs.py -m cadsr_alt_pvs -v
+    pytest tests/test_manual/test_cadsr_alternate_values_cdepvs_modelpvs.py -m cadsr_alt_pvs -v
 
 Console output uses ``print`` (visible with pytest ``-s``; this project sets ``addopts = -v -s``).
 Use ``--log-cli-level=INFO`` for duplicate ``logger`` lines.
