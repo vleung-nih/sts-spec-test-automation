@@ -46,6 +46,27 @@
           "property": "primary_site"
         }
       ]
+    },
+    {
+      "case_type": "url_pv_yaml_enum_model_pvs",
+      "pytest_param_id": "14905532-url-pv",
+      "cde_id": "14905532",
+      "cde_version": "1.00",
+      "pv_value": "https://evsexplore.semantics.cancer.gov/evsexplore/hierarchy/ncit/C2991",
+      "min_concept_count": 2,
+      "expected_concept_codes": ["C2991", "C43816"],
+      "description": "caDSR PV is NCIt hierarchy URL (EVS explore); cde-pvs not asserted; model-pvs expands to CDS primary_diagnosis Enum from YAML, no URL row, all null ncit and empty synonyms",
+      "yaml_enum": {
+        "file": "data/data-models-yaml/cds-model-props-4.yml",
+        "property": "primary_diagnosis"
+      },
+      "model_pvs": [
+        {
+          "model": "CDS",
+          "model_version": "11.0.3",
+          "property": "primary_diagnosis"
+        }
+      ]
     }
   ]
 }
