@@ -23,13 +23,6 @@
       "property": "experimental_strategy_and_data_subtypes"
     },
     {
-      "cde_id": "14905532",
-      "cde_version": "1.00",
-      "model": "CDS",
-      "model_version": "11.0.3",
-      "property": "primary_diagnosis"
-    },
-    {
       "cde_id": "7797710",
       "cde_version": "1.00",
       "model": "C3DC",
