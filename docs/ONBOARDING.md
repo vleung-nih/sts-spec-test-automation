@@ -1,6 +1,15 @@
 # STS v2 API Test Framework – Onboarding Guide
 
-This document explains what the framework does, how it works, how to run it, and how to maintain or extend it. Use it together with the [README](../README.md) for quick reference; this guide provides the full picture. For a **minimal command-only** path (install, optional env vars, pytest, three convenience scripts), see **[RUNBOOK.md](RUNBOOK.md)**.
+This document explains what the framework does, how it works, how to run it, and how to maintain or extend it. Use the [README](../README.md) for install, environment defaults, and the three main scripts; this guide provides the full picture. For a **minimal command-only** path (install, optional env vars, three convenience scripts), see **[RUNBOOK.md](RUNBOOK.md)**. 
+
+**How to read this document**
+
+- **First day / QA run:** [§1](#1-what-is-sts-and-the-v2-api)–[§2](#2-what-does-this-framework-do), [§6.1](#61-prerequisites)–[§6.6](#66-running-all-data-models-in-one-go-multi-model-runner) (skim [§6.7](#67-what-happens-when-you-run-under-the-hood)), [§8.2](#82-which-file-should-i-open).
+- **Scripts and logs:** [§6.8](#68-convenience-shell-scripts), [§6.9](#69-term-by-value-yaml--sts).
+- **Changing or debugging tests:** [§7](#7-how-to-add-or-change-tests), [§10](#10-troubleshooting-and-faq).
+- **Generator internals / edge cases:** [§3.3.1](#331-advanced-pagination-skip-oob-and-reporting-quirks), [§6.7](#67-what-happens-when-you-run-under-the-hood).
+
+Optional deep dives: [pagination, skip-OOB, reporting](#331-advanced-pagination-skip-oob-and-reporting-quirks) · [caDSR & legacy CDE-PVS manual tests](#621-manual-tests-cadsr-and-legacy-cde-pvs-reference)
 
 ---
 
@@ -8,10 +17,10 @@ This document explains what the framework does, how it works, how to run it, and
 
 1. [What is STS and the v2 API?](#1-what-is-sts-and-the-v2-api)
 2. [What does this framework do?](#2-what-does-this-framework-do)
-3. [Key concepts](#3-key-concepts)
+3. [Key concepts](#3-key-concepts) — [3.3.1 Advanced (pagination / skip-OOB)](#331-advanced-pagination-skip-oob-and-reporting-quirks)
 4. [Project structure](#4-project-structure)
 5. [How the framework was created (design decisions)](#5-how-the-framework-was-created-design-decisions)
-6. [How to run the framework](#6-how-to-run-the-framework)
+6. [How to run the framework](#6-how-to-run-the-framework) — [6.2.1 caDSR / legacy CDE-PVS](#621-manual-tests-cadsr-and-legacy-cde-pvs-reference)
 7. [How to add or change tests](#7-how-to-add-or-change-tests)
 8. [Reports and CI](#8-reports-and-ci)
 9. [Glossary](#9-glossary)
@@ -40,7 +49,9 @@ At a high level, the framework does four things:
 
 So: **no hand-written test list per endpoint.** The spec is the source of truth; the framework turns it into executable tests and runs them. If the spec is updated, re-running the framework exercises the new or changed endpoints automatically.
 
-**Static vs generated tests:** **Manual** integration tests live under `tests/test_manual/`. **Unit** tests for the functional runner (mocked responses, no HTTP) live under `tests/unit/`. The **generated** tests are **not** stored as test case files on disk. They are created **on the fly** from the spec plus discovery data, live **in memory**, and are then run—either by pytest (which builds one parametrized test per case at collection time) or by the CLI (which runs the case list in a loop). The only file under `tests/test_generated/` is `test_from_spec.py`; that file is the pytest hook that invokes the generator and parametrizes tests—it does not contain a static list of test cases.
+The **generated** tests are **not** stored as test case files on disk. They are created **on the fly** from the spec plus discovery data, live **in memory**, and are then run—either by pytest (which builds one parametrized test per case at collection time) or by the CLI (which runs the case list in a loop). The only file under `tests/test_generated/` is `test_from_spec.py`; that file is the pytest hook that invokes the generator and parametrizes tests—it does not contain a static list of test cases.
+
+**Static tests also exist in the framework:** **Manual** integration tests live under `tests/test_manual/`. Term-by-value verification pipelines use data model properties YAMLs in `data/data-model-yaml` and compare enums from the YAMLs to responses from STS termValue endpoint for each data model. Optional **unit** tests for the functional runner (mocked responses, no HTTP) live under `tests/unit/`. 
 
 ---
 
@@ -61,7 +72,7 @@ The framework **loads** this file and uses it to decide which requests to send a
 
 Many endpoints need **real values** in the URL. For example, “get node by handle” requires a real `modelHandle`, `versionString`, and `nodeHandle`. We don’t hardcode those; we **discover** them by calling the API once at the start:
 
-1. GET `/models/` → choose a model (by `**--model`** handle if provided, otherwise the first in the list). GET `/model/{handle}/versions` → choose a version: with `**--release**`, the latest **release** version (version string with no hyphen, e.g. `2.1.0`); otherwise the first version in the list (which may be a pre-release).
+1. GET `/models/` → choose a model (by `--model` handle if provided, otherwise the first in the list). GET `/model/{handle}/versions` → choose a version: with `--release`, the latest **release** version (version string with no hyphen, e.g. `2.1.0`); otherwise the first version in the list (which may be a pre-release).
 2. GET `/model/{handle}/version/{version}/nodes` → take the first node’s `handle`.
 3. GET that node’s properties → take the first property’s `handle`.
 4. GET that property’s terms → take a real `term` value.
@@ -76,11 +87,10 @@ The **generator** walks every path and method in the spec. For each operation it
 - **Positive case:** Fills path and query parameters from the discovery data. If it can resolve all required parameters, it adds one case with `expected_status: 200`.
 - **Negative case:** Where the spec documents 404 or 422, it adds a case that uses an **invalid** value (e.g. `invalid_nonexistent_xyz`) for a path parameter, expecting 404 or 422.
 - **Bad query (422):** For operations that document 422 and have integer `skip`/`limit` query parameters, the generator adds one or two extra cases (same valid path, invalid query: `skip=-1` and/or `limit=not_a_number`) with distinct `operation_id` suffixes (e.g. `__bad_query_skip`, `__bad_query_limit`) so pytest ids stay unique.
-- **Positive pagination (`__pagination_positive`):** For operations that document **200** and have **both** integer `skip` and `limit` query parameters, the generator adds one extra positive case with `skip=0`, `limit=1`, `operation_id` suffix `__pagination_positive`, and `pagination_assert_max_items: 1`. The functional runner checks that when the response body is a JSON **array**, `len(body) <= 1` (i.e. the API respects `limit`). Non-array JSON skips this check.
-- **Pagination pair (`__pagination_pair`):** For the same operations **except** `GET .../terms/model-pvs/...` and `GET .../terms/cde-pvs/.../pvs` (those stay covered by other rules), the generator adds a case that runs **two** GETs: **A** with `skip=0`, `limit=0` (equivalent to default first page for this API), then **B** with `skip=1`, `limit=1`. If **A** is a JSON array with **at least two** elements, the runner asserts `B[0] == A[1]` (skip shifts the window). If **A** is not a list or has fewer than two items, the pair comparison is skipped (case still passes). Case fields: `pagination_pair_assert`, `pagination_pair_params_a`, `pagination_pair_params_b`. For property **`/terms`** and **`/terms/count`** routes, **404** with body `{"detail":"Property exists, but does not use an acceptable value set."}` is treated as **pass** for request **A** or **B** (same rule as the default positive GET for that property). **Logging/reports:** CLI and HTML show **one row** per pair case: when **B** runs, Path and Duration reflect **B only** (`skip=1`, `limit=1` and B’s latency); if B was skipped (not enough items in A), Path still shows **B**’s URL with a short note and duration is A’s request time; if **A** fails before B, Path shows **A**’s URL. JSON results include `pagination_pair_b_executed`, `duration_pair_a`, `duration_pair_b`, `pagination_pair_wall_time` (A+B), and optional `pagination_pair_display_note`.
-- **Huge skip / past end (`__skip_oob`):** `skip` set to `9_999_999` (constant `SKIP_OOB` in `generator.py`), `operation_id` suffix `__skip_oob`. **Default:** for GETs with integer `skip` that document **404**, expect **404** + `expected_json: {"detail": "Not found."}` (`negative: true`). **Exceptions (always emitted when these routes have `skip`):** `GET .../terms/cde-pvs/{id}/{version}/pvs` expects **200** + `[]` (`expected_json`); `GET .../terms/model-pvs/{model}/{property}` expects **200** + a **non-empty** JSON array of objects each with `permissibleValues: []` (checked via `skip_oob_assert: model_pvs_empty_permissible_values`; an empty top-level `[]` fails with an error that asks to investigate). Those two use `negative: false`. The runner and pytest assert status and body per case.
 
-Each **case** is a small dictionary: `path`, `params`, `expected_status`, `operation_id`, `summary`, `tag`, whether it’s negative, optional `response_schema_ref`, optional `expected_json` for exact body matches, optional `pagination_assert_max_items` for `__pagination_positive`, optional `pagination_pair_assert` / `pagination_pair_params_a` / `pagination_pair_params_b` for `__pagination_pair`, and optional `skip_oob_assert` for model-pvs skip-OOB. No test code is written by hand for these; they come from the spec + discovery.
+The generator also adds **pagination** and **skip-past-end** case types for some operations; see [§3.3.1](#331-advanced-pagination-skip-oob-and-reporting-quirks) for full rules and optional fields on those cases.
+
+Each **case** is a small dictionary: at minimum `path`, `params`, `expected_status`, `operation_id`, `summary`, `tag`, and whether it’s negative; common optional keys include `response_schema_ref` and `expected_json`. Pagination and skip-OOB cases add further fields documented in §3.3.1. No test code is written by hand for generated cases; they come from the spec + discovery.
 
 **Sample generated cases** (the exact values depend on discovery; this is what one positive and one negative might look like in memory). Here, a **terms** endpoint shows how discovery data is used—the path is built from `model_handle`, `model_version`, `node_handle`, `prop_handle`, and `term_value` in `test_data`:
 
@@ -111,6 +121,42 @@ Each **case** is a small dictionary: `path`, `params`, `expected_status`, `opera
 
 The runner sends `GET base_url + path` with the given `params`, then asserts that the response status equals `expected_status`.
 
+### 3.3.1 Advanced: pagination, skip-OOB, and reporting quirks
+
+Skip this subsection unless you are debugging generated cases or report rows for pagination.
+
+- **Positive pagination (`__pagination_positive`)**
+  - **When added:** Operations that document **200** and have integer `skip` + `limit` query params.
+  - **Generated case:** `skip=0`, `limit=1`, operation id suffix `__pagination_positive`, `pagination_assert_max_items: 1`.
+  - **Assertion:** If body is a JSON array, runner checks `len(body) <= 1`. Non-array JSON skips this check.
+
+- **Pagination pair (`__pagination_pair`)**
+  - **When added:** Same operations as above, except `GET .../terms/model-pvs/...` and `GET .../terms/cde-pvs/.../pvs`.
+  - **Generated requests:**  
+    - **A:** `skip=0`, `limit=0` (default first-page behavior for this API)  
+    - **B:** `skip=1`, `limit=1`
+  - **Assertion logic:**  
+    - If A is a JSON array with at least 2 elements, assert `B[0] == A[1]`.  
+    - If A is not an array or has fewer than 2 elements, skip pair comparison (case still passes).
+  - **Case fields:** `pagination_pair_assert`, `pagination_pair_params_a`, `pagination_pair_params_b`.
+  - **Special pass rule:** For `/terms` and `/terms/count` routes, `404` with `{"detail":"Property exists, but does not use an acceptable value set."}` is treated as pass for request A or B.
+  - **Reporting behavior (one row per pair case):**  
+    - If B runs, Path/Duration reflect **B** only (`skip=1`, `limit=1`, B latency).  
+    - If B is skipped, Path still shows B URL with a note; duration is A request time.  
+    - If A fails before B, Path shows A URL.
+  - **JSON result extras:** `pagination_pair_b_executed`, `duration_pair_a`, `duration_pair_b`, `pagination_pair_wall_time` (A+B), optional `pagination_pair_display_note`.
+
+- **Huge skip / past end (`__skip_oob`)**
+  - **Generated case:** `skip=9_999_999` (constant `SKIP_OOB`), operation id suffix `__skip_oob`.
+  - **Default expectation:** For GETs with integer `skip` that document **404**, expect `404` + `expected_json: {"detail": "Not found."}` with `negative: true`.
+  - **Exceptions (always emitted when route has `skip`):**  
+    - `GET .../terms/cde-pvs/{id}/{version}/pvs` expects `200` + `[]` (`expected_json`).  
+    - `GET .../terms/model-pvs/{model}/{property}` expects `200` + **non-empty** JSON array where each object has `permissibleValues: []` (`skip_oob_assert: model_pvs_empty_permissible_values`).
+  - **Exception note:** For model-pvs skip-OOB, top-level `[]` is treated as failure and flagged for investigation.
+  - **Negative flag:** Exception cases use `negative: false`.
+
+**Pagination / skip-OOB case fields:** optional `pagination_assert_max_items` for `__pagination_positive`; optional `pagination_pair_assert` / `pagination_pair_params_a` / `pagination_pair_params_b` for `__pagination_pair`; optional `skip_oob_assert` for model-pvs skip-OOB (in addition to `response_schema_ref` / `expected_json` where used).
+
 ### 3.4 Runners and reporters
 
 - **Functional runner** – Takes the list of cases and, for each one, calls `client.get(path, params)`, then checks that the response status equals `expected_status`. For 200 responses it can also do a basic shape check (e.g. response is a list, dict, or integer). It records pass/fail and duration.
@@ -130,9 +176,9 @@ The spec’s paths are written like `/v2/models/` or `/v2/id/{id}`. The **base U
 
 ```
 sts-test-framework-agent/
-├── README.md                 # Quick start and overview (complement to this doc)
-├── pyproject.toml            # Python package and dependencies (pytest, PyYAML, jsonschema)
-├── requirements.txt          # Same deps for pip install
+├── README.md                 # Entry point: install, env note, three scripts (complement to this doc)
+├── pyproject.toml            # Package metadata and core dependencies
+├── requirements.txt          # pip install -r: core deps plus boto3 (optional parser_agent / Bedrock)
 ├── spec/
 │   └── v2.yaml               # OpenAPI spec for STS v2 (source of truth; do not edit by hand unless you own the API)
 ├── src/sts_test_framework/   # Main framework code
@@ -160,11 +206,13 @@ sts-test-framework-agent/
 │   └── test_generated/        # Dynamic tests: one test per generated case
 │       └── test_from_spec.py   # Uses pytest_generate_tests to parametrize by case
 ├── data/data-models-yaml/     # Vendored property YAML; tests/term_verify/* per commons
+├── logs/                      # Captured tee logs from convenience scripts (manual, autogenerated, term-verify, full suite)
+├── parser_agent/              # Optional AI (Bedrock) log parser: detect failures in a log → Markdown summary
 ├── reports/                   # Default output for timestamped report_*.json and report_*.html
+│   ├── agent-summaries/       # parser_agent output: summary_*.md when AWS creds are set and failures exist
 │   └── term_value/            # YAML-driven term-by-value reports (CCDI, C3DC, CTDC, ICDC, CDS, CCDI-DCC, …)
 └── docs/
-    ├── ONBOARDING.md          # This document
-    └── FRAMEWORK.md           # Short pointer to this doc
+    └── ONBOARDING.md          # This document (full onboarding)
 ```
 
 **Why this layout?**
@@ -192,70 +240,74 @@ sts-test-framework-agent/
 ### 6.1 Prerequisites
 
 - **Python 3.9+**
-- Dependencies: `pytest`, `PyYAML`, `jsonschema` (and optionally `pytest-html`). Install the project so the framework is on your path:
+- Install dependencies and the package so `sts_test_framework` is importable. The optional **AI parser agent** (`parser_agent`, LLM-assisted via Amazon Bedrock) runs only when `**AWS_ACCESS_KEY_ID`**, `**AWS_SECRET_ACCESS_KEY**`, and `**AWS_REGION**` are all set—used by `run_manual_tests.sh`, `run_autogenerated_tests.py`, `run_all_term_verify.sh`, and `run_full_suite.sh` (each prints a short notice at the start and skips `python3 parser_agent/...` when unset; requires **boto3** when enabled). Use `requirements.txt` (includes boto3) or `pip install -e ".[agent]"` when you use the parser. See [§6.8](#68-convenience-shell-scripts) and [§8.4](#84-optional-ai-failure-summaries-parser-agent).
   ```bash
   cd mdb/sts-test-framework-agent
+  pip install -r requirements.txt
   pip install -e .
   ```
   Or use a virtual environment (recommended):
   ```bash
   python3 -m venv .venv
   source .venv/bin/activate   # or .venv\Scripts\activate on Windows
+  pip install -r requirements.txt
   pip install -e .
   ```
 
 ### 6.2 Configuration: environment variables
 
-The framework does **not** read a repo config file and does **not** auto-load `.env`. It reads **environment variables** (e.g. `os.getenv("STS_BASE_URL")`). Control the base URL, SSL behavior, and report directory by **setting those variables** before pytest or the CLI, or pass **`--base-url`** to the CLI only.
+The framework does **not** read a repo config file and does **not** auto-load `.env`. It reads **environment variables** (e.g. `os.getenv("STS_BASE_URL")`). Control the base URL, SSL behavior, and report directory by **setting those variables** before pytest or the CLI, or pass `--base-url` to the CLI only.
 
 **How do I set the variables?**
 
-1. **Command line (one-off run)**  
-   Prefix the variable for a single command (pytest or CLI):
-   ```bash
-   STS_BASE_URL=https://sts-qa.cancer.gov/v2 pytest tests/ -v
-   STS_BASE_URL=https://sts-qa.cancer.gov/v2 python -m sts_test_framework.cli --report reports/
-   ```
-   For the **CLI only**, you can instead pass `--base-url` (overrides `STS_BASE_URL` for that invocation):
-   ```bash
-   python -m sts_test_framework.cli --base-url https://sts-qa.cancer.gov/v2 --report reports/
-   ```
-   Pytest has **no** `--base-url` flag; it always uses `STS_BASE_URL` from the environment (or the default QA URL).
+**1) Command line (one-off run)**  
+Prefix the variable for a single command (pytest or CLI):
 
-2. **Shell session (current terminal)**  
-   Export so every command in that session uses the value:
-   ```bash
-   export STS_BASE_URL=https://sts-qa.cancer.gov/v2
-   pytest tests/ -v
-   python -m sts_test_framework.cli --report reports/
-   ```
+```bash
+STS_BASE_URL=https://sts-qa.cancer.gov/v2 pytest tests/ -v
+STS_BASE_URL=https://sts-qa.cancer.gov/v2 python -m sts_test_framework.cli --report reports/
+```
 
-3. **CI (e.g. GitHub Actions)**  
-   Set the variables in the job’s `env` block so each run targets the right environment (see “Running against QA, stage, or prod” below).
+For the **CLI only**, you can instead pass `--base-url` (overrides `STS_BASE_URL` for that invocation):
+
+```bash
+python -m sts_test_framework.cli --base-url https://sts-qa.cancer.gov/v2 --report reports/
+```
+
+Pytest has **no** `--base-url` flag; it always uses `STS_BASE_URL` from the environment (or the default QA URL).
+
+**2) Shell session (current terminal)**  
+Export so every command in that session uses the value:
+
+```bash
+export STS_BASE_URL=https://sts-qa.cancer.gov/v2
+pytest tests/ -v
+python -m sts_test_framework.cli --report reports/
+```
+
+**3) CI (e.g. GitHub Actions)**  
+Set the variables in the job's `env` block so each run targets the right environment (see "Running against QA, stage, or prod" below).
 
 **Variable reference:**
 
-Implementation detail: base URL resolution lives in [`sts_test_framework.config.sts_base_url()`](../src/sts_test_framework/config.py) (`STS_BASE_URL` or default QA). Pytest prints `STS environment: <url>` at the start of each run (see `tests/conftest.py`).
+Implementation detail: base URL resolution lives in `[sts_test_framework.config.sts_base_url()](../src/sts_test_framework/config.py)` (`STS_BASE_URL` or default QA). Pytest prints `STS environment: <url>` at the start of each run (see `tests/conftest.py`).
 
 
-| Variable         | Meaning                                                                                                                | Default                        |
-| ---------------- | ---------------------------------------------------------------------------------------------------------------------- | ------------------------------ |
-| `STS_BASE_URL`   | Base URL of the STS v2 API (pytest, CLI, and `APIClient`; include `/v2`)                                                | `https://sts-qa.cancer.gov/v2` |
-| `STS_SSL_VERIFY` | Set to `false` to disable SSL certificate verification (e.g. local/dev with self-signed certs)                         | `true`                         |
-| `REPORT_DIR`     | Directory where the CLI writes timestamped `report_YYYY-MM-DDTHH-MM-SS.json` and `.html` (each run gets its own files) | `reports`                      |
-| `STS_MODELS`     | Comma-separated model handles for `scripts/run_autogenerated_tests.py` only (subset of models)                                   | (all models in script)         |
-| `STS_DEDUP_LIMIT` | Total discovered cases for `test_model_pvs_no_duplicates.py`; split across `MAJOR_MODELS` (fair: `limit // n` plus remainder to first models). Default **140** with **7** models → **20** properties per model. | `140`                          |
-| `STS_PARALLEL_WORKERS` | Max models to run concurrently in `scripts/run_autogenerated_tests.py` (default `1` sequential; increase e.g. `2`, `8` for parallel) | `1`                            |
-| `CADSR_BASE_URL` | Root URL for the caDSR REST API (manual modules `test_cadsr_alternatevalues_draftnew_cdes.py`, `test_cadsr_multi_concept_cdes.py`; paths like `/DataElement/{publicId}`) | `https://cadsrapi.cancer.gov/rad/NCIAPI/1.0/api` |
-| `CADSR_DESIGNATION_TYPES` | Optional: comma-separated `Designations[].type` values to **limit** which names must appear in STS; unset or `*` means **all** types | (unset = all) |
+| Variable                  | Meaning                                                                                                                                                                                                         | Default                                          |
+| ------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------ |
+| `STS_BASE_URL`            | Base URL of the STS v2 API (pytest, CLI, and `APIClient`; include `/v2`)                                                                                                                                        | `https://sts-qa.cancer.gov/v2`                   |
+| `STS_SSL_VERIFY`          | Set to `false` to disable SSL certificate verification (e.g. local/dev with self-signed certs)                                                                                                                  | `true`                                           |
+| `REPORT_DIR`              | Directory where the CLI writes timestamped `report_YYYY-MM-DDTHH-MM-SS.json` and `.html` (each run gets its own files)                                                                                          | `reports`                                        |
+| `STS_MODELS`              | Comma-separated model handles for `scripts/run_autogenerated_tests.py` only (subset of models)                                                                                                                  | (all models in script)                           |
+| `STS_DEDUP_LIMIT`         | Total discovered cases for `test_model_pvs_no_duplicates.py`; split across `MAJOR_MODELS` (fair: `limit // n` plus remainder to first models). Default **140** with **7** models → **20** properties per model. | `140`                                            |
+| `STS_PARALLEL_WORKERS`    | Max models to run concurrently in `scripts/run_autogenerated_tests.py` (default `1` sequential; increase e.g. `2`, `8` for parallel)                                                                            | `1`                                              |
+| `CADSR_BASE_URL`          | Root URL for the caDSR REST API (manual modules; paths like `/DataElement/{publicId}`). See [§6.2.1](#621-manual-tests-cadsr-and-legacy-cde-pvs-reference).                                                     | `https://cadsrapi.cancer.gov/rad/NCIAPI/1.0/api` |
+| `CADSR_DESIGNATION_TYPES` | Optional: comma-separated `Designations[].type` values to **limit** which names must appear in STS; unset or `*` means **all** types. See [§6.2.1](#621-manual-tests-cadsr-and-legacy-cde-pvs-reference).       | (unset = all)                                    |
 
-`STS_QA_URL` is **not** read by the framework—use **`STS_BASE_URL`** for QA (or any environment).
 
-**Multi-concept / URL-PV CDE checks (manual tests):** `tests/test_manual/test_cadsr_multi_concept_cdes.py` — marker **`cadsr_multi_concept_pv`**, cases in `data/cadsr_multi_concept_cdes_cases.json`. Each case should set **`case_type`** explicitly in JSON (**`multi_concept_pv`** or **`url_pv_yaml_enum_model_pvs`**); if omitted, it defaults to **`multi_concept_pv`**. **caDSR** checks apply to all cases. For **`multi_concept_pv`**, STS **cde-pvs** must have exactly one row for **`pv_value`** with `ncit_concept_code: null` and `synonyms: []`, and each listed **model-pvs** must have exactly one row for that same `value` with null ncit and empty synonyms; caDSR must expose multiple `ValueMeaning.Concepts` / `conceptCode` values. For **`url_pv_yaml_enum_model_pvs`**, STS **cde-pvs** is **not** checked (STS may map the URL row to an NCIt code and synonyms on cde-pvs); **model-pvs** must **not** include the URL, must match the property’s YAML **Enum** multiset (**`yaml_enum.file`** / **`yaml_enum.property`**), and every row must have null ncit and empty synonyms. Optional **`pytest_param_id`** shortens pytest display names. Run: `pytest tests/test_manual/test_cadsr_multi_concept_cdes.py -m cadsr_multi_concept_pv -v`.
+**Optional parser agent** (`run_manual_tests.sh`, `run_autogenerated_tests.py`, `run_all_term_verify.sh`, `run_full_suite.sh`): Bedrock summaries run only when all of `**AWS_ACCESS_KEY_ID`**, `**AWS_SECRET_ACCESS_KEY**`, and `**AWS_REGION**` are set and non-empty. If any is missing, each script skips invoking the parser (no boto3 import). Shared bash helpers live in `scripts/parser_agent_hook.sh`. Requires **boto3** when enabled.
 
-**caDSR vs STS PVS (Designations / DRAFT NEW):** `tests/test_manual/test_cadsr_alternatevalues_draftnew_cdes.py` includes two markers. **`cadsr_alt_pvs`** compares caDSR **Designations** names to STS **cde-pvs** and **model-pvs** (`data/cadsr_alternate_values_cases.json`). **`cadsr_draft_new`** asserts caDSR **`workflowStatus`** is **DRAFT NEW**, matches **`longName`** to STS **`CDEFullName`** (exact string match), and that **every** caDSR **`PermissibleValues[].value`** (multiset) appears on STS **cde-pvs** rows whose **`ncit_concept_code`** is non-null (extra STS rows with null NCIt are ignored). Optionally, if a case includes **`model`**, **`model_version`**, and **`property`** (same fields as `cadsr_alternate_values_cases.json`), the test also calls STS **model-pvs** and asserts the **same** PV multiset subset on NCIt-coded rows only (model-pvs does not return **`CDEFullName`** — no name check there). Case list: `data/cadsr_draft_new_cases.json`; CDE **version** for the cde-pvs URL is read from live caDSR. Set **`CADSR_BASE_URL`** if not using the default public API host; **`STS_SSL_VERIFY`** applies to both STS and caDSR clients (`APIClient`). For Designations tests, by default **every** designation **name** (all types) must appear as a STS `value`; set **`CADSR_DESIGNATION_TYPES`** (e.g. `MCL Alt Name`) to only require those types.
-
-**Legacy CDE-PVS vs v2 (manual tests):** Some manual tests compare the pre-v2 route `GET {origin}/cde-pvs/{id}/{version}?format=json` to v2 `GET .../terms/cde-pvs/{id}/{version}/pvs`. The **origin** is derived from `STS_BASE_URL` by stripping a trailing `/v2` (`sts_test_framework.config.sts_legacy_origin()`). You do **not** set a second base URL unless your deployment serves legacy paths on a different host—in that case adjust `STS_BASE_URL` or extend the helper. See `tests/test_manual/test_cde_pvs_legacy_vs_v2.py` and marker `cde_pvs_legacy`.
+`STS_QA_URL` is **not** read by the framework—use `**STS_BASE_URL`** for QA (or any environment).
 
 If you don’t set these, the defaults are used. The framework needs **network access** to the STS server for discovery and for running the tests.
 
@@ -310,6 +362,47 @@ If your dev server uses HTTPS with a self-signed cert, set `STS_SSL_VERIFY=false
 STS_BASE_URL=https://my-dev-server.local/v2 STS_SSL_VERIFY=false pytest tests/ -v
 ```
 
+### 6.2.1 Manual tests: caDSR and legacy CDE-PVS (reference)
+
+Skip unless you run or debug these manual modules (`CADSR_*` env vars in [§6.2](#62-configuration-environment-variables)).
+
+- **Multi-concept / URL-PV CDE checks**
+  - **Test file:** `tests/test_manual/test_cadsr_multi_concept_cdes.py`
+  - **Marker:** `cadsr_multi_concept_pv`
+  - **Cases file:** `data/cadsr_multi_concept_cdes_cases.json`
+  - **Case typing:** Set `case_type` explicitly (`multi_concept_pv` or `url_pv_yaml_enum_model_pvs`); default is `multi_concept_pv`.
+  - **For `multi_concept_pv`:**
+    - STS **cde-pvs** must return exactly one row for `pv_value` with `ncit_concept_code: null` and `synonyms: []`.
+    - Each listed **model-pvs** endpoint must return exactly one row for the same `value` with null NCIt and empty synonyms.
+    - caDSR must expose multiple `ValueMeaning.Concepts` / `conceptCode` values.
+  - **For `url_pv_yaml_enum_model_pvs`:**
+    - STS cde-pvs is not checked.
+    - model-pvs must exclude the URL, match YAML enum multiset (`yaml_enum.file` / `yaml_enum.property`), and return rows with null NCIt + empty synonyms.
+  - **Optional display helper:** `pytest_param_id` shortens pytest case names.
+  - **Run command:** `pytest tests/test_manual/test_cadsr_multi_concept_cdes.py -m cadsr_multi_concept_pv -v`
+
+- **caDSR vs STS PVS (Designations / DRAFT NEW)**
+  - **Test file:** `tests/test_manual/test_cadsr_alternatevalues_draftnew_cdes.py`
+  - **Markers:** `cadsr_alt_pvs`, `cadsr_draft_new`
+  - **`cadsr_alt_pvs`:** Compares caDSR **Designations** names to STS **cde-pvs** and **model-pvs** (`data/cadsr_alternate_values_cases.json`).
+  - **`cadsr_draft_new` assertions:**
+    - caDSR `workflowStatus` is **DRAFT NEW**
+    - caDSR `longName` exactly matches STS `CDEFullName`
+    - Every caDSR `PermissibleValues[].value` appears in STS cde-pvs rows with non-null `ncit_concept_code` (rows with null NCIt are ignored)
+  - **Optional model-pvs check:** If case has `model`, `model_version`, and `property`, also assert PV multiset subset against STS model-pvs NCIt-coded rows (no `CDEFullName` check there).
+  - **Cases file:** `data/cadsr_draft_new_cases.json`
+  - **Other notes:**
+    - CDE version for cde-pvs URL is read from live caDSR.
+    - Set `CADSR_BASE_URL` to use non-default caDSR host.
+    - `STS_SSL_VERIFY` applies to both STS and caDSR `APIClient` calls.
+    - By default all designation types are required; set `CADSR_DESIGNATION_TYPES` (for example `MCL Alt Name`) to filter required types.
+
+- **Legacy CDE-PVS vs v2**
+  - **Comparison:** Legacy `GET {origin}/cde-pvs/{id}/{version}?format=json` vs v2 `GET .../terms/cde-pvs/{id}/{version}/pvs`
+  - **Origin derivation:** `origin` comes from `STS_BASE_URL` with trailing `/v2` removed via `sts_test_framework.config.sts_legacy_origin()`.
+  - **Config rule:** Do not set a second base URL unless legacy routes are hosted elsewhere; then adjust `STS_BASE_URL` or extend the helper.
+  - **Reference test:** `tests/test_manual/test_cde_pvs_legacy_vs_v2.py` (marker `cde_pvs_legacy`)
+
 ### 6.3 Two ways to run: pytest vs CLI
 
 The framework can be run in **two ways**. Both use the same spec, discovery, and generator—so the same test cases run either way. The difference is **how** you invoke them and **what you get**:
@@ -328,7 +421,7 @@ The framework can be run in **two ways**. Both use the same spec, discovery, and
 
 ### 6.4 Run with pytest (recommended for day-to-day work)
 
-For **timestamped HTML/JSON reports** for the OpenAPI-generated GET suite (especially **per data model**), use `python scripts/run_autogenerated_tests.py` or `python -m sts_test_framework.cli --report ...` rather than pytest alone. The **`tests/test_generated/`** tree remains the pytest-based way to run the same generated cases when you want IDE integration or a single-process `pytest tests/ -v` run.
+For **timestamped HTML/JSON reports** for the OpenAPI-generated GET suite (especially **per data model**), use `python scripts/run_autogenerated_tests.py` or `python -m sts_test_framework.cli --report ...` rather than pytest alone. The `tests/test_generated/` tree remains the pytest-based way to run the same generated cases when you want IDE integration or a single-process `pytest tests/ -v` run.
 
 From the project root:
 
@@ -356,7 +449,7 @@ The CLI loads the spec, runs discovery, generates cases, runs them, and **always
 python -m sts_test_framework.cli
 ```
 
-Defaults: spec = `spec/v2.yaml`, base URL = `STS_BASE_URL` or `https://sts.cancer.gov/v2`, report dir = `reports/`.
+Defaults: spec = `spec/v2.yaml`, base URL = `STS_BASE_URL` or `https://sts-qa.cancer.gov/v2` (same default as `[DEFAULT_STS_BASE_URL` in `sts_test_framework.config](../src/sts_test_framework/config.py)`), report dir = `reports/`. For **prod**, **stage**, or **local**, set `STS_BASE_URL` or pass `--base-url` (see [§6.2](#62-configuration-environment-variables)).
 
 **Example:** Your CI job runs after every deploy. You run `python -m sts_test_framework.cli --report reports/` and publish `reports/report.html` as an artifact so the team can open it and see which endpoints passed or failed. You don’t need pytest in that job—just the CLI and the report files.
 
@@ -382,8 +475,8 @@ python -m sts_test_framework.cli --report reports/ --model PSDC
 python -m sts_test_framework.cli --report reports/ --model PSDC --release
 ```
 
-- `**--model <handle>**` – Model handle to test (e.g. `PSDC`, `C3DC`, `CDS`). Discovery uses this model and its version for all path parameters. If omitted, the first model returned by `/models/` is used.
-- `**--release**` – Use the latest **release** version from `/model/{handle}/versions`. A release version is one whose string has no hyphen (e.g. `2.1.0`). If the model has no release versions, the first available version is used. Without `--release`, the first version in the list (which may be a pre-release) is used.
+- `--model <handle>` – Model handle to test (e.g. `PSDC`, `C3DC`, `CDS`). Discovery uses this model and its version for all path parameters. If omitted, the first model returned by `/models/` is used.
+- `--release` – Use the latest **release** version from `/model/{handle}/versions`. A release version is one whose string has no hyphen (e.g. `2.1.0`). If the model has no release versions, the first available version is used. Without `--release`, the first version in the list (which may be a pre-release) is used.
 
 When any test fails, the CLI exits with code 1 so CI can detect failure.
 
@@ -399,19 +492,11 @@ python scripts/run_autogenerated_tests.py
 **Behavior:**
 
 - Runs the CLI once per model with `--model <handle>` and `--release`, **sequentially** by default (`STS_PARALLEL_WORKERS=1`). Set `STS_PARALLEL_WORKERS` to `2`, `8`, etc. to run up to that many models at a time.
-- Writes reports to `**reports/<model>/`** (e.g. `reports/PSDC/report_2025-03-12T14-30-45.html` and `.json`). Each run gets timestamped files so previous reports are not overwritten.
+- Writes reports to `reports/<model>/` (e.g. `reports/PSDC/report_2025-03-12T14-30-45.html` and `.json`). Each run gets timestamped files so previous reports are not overwritten.
 - Exits with code **1** if any model run fails, so CI can detect failure.
 - Prints a per-model `[PASS]`/`[FAIL]` line as each model completes and a summary at the end with wall-clock time.
 
-**Environment variables:**
-
-
-| Variable       | Meaning                                                                                                | Default                                            |
-| -------------- | ------------------------------------------------------------------------------------------------------ | -------------------------------------------------- |
-| `STS_BASE_URL` | Base URL of the STS v2 API (used for all model runs)                                                   | `https://sts-qa.cancer.gov/v2`                     |
-| `STS_MODELS`   | Comma-separated list of model handles to run (e.g. `PSDC,CTDC`). If unset, all default models are run. | (all: CDS, CCDI, CCDI-DCC, ICDC, CTDC, C3DC, PSDC) |
-| `STS_PARALLEL_WORKERS` | Max models to run concurrently. Default `1` (sequential); set higher for parallel execution.   | `1`                                                |
-
+**Environment variables:** Same as the [§6.2 variable reference](#62-configuration-environment-variables) for `STS_BASE_URL`, `STS_MODELS`, and `STS_PARALLEL_WORKERS`. This script defaults to all models **CDS, CCDI, CCDI-DCC, ICDC, CTDC, C3DC, PSDC** when `STS_MODELS` is unset, and writes reports under `reports/<ModelHandle>/` (not the flat `reports/` used by a single CLI run).
 
 **Example – run only PSDC and CTDC:**
 
@@ -454,7 +539,7 @@ A more detailed breakdown of each step is below.
 
 #### Step 2: Create the HTTP client
 
-- **What happens:** An `APIClient` instance is created with the base URL (from `--base-url`, or from the `STS_BASE_URL` environment variable, or the default `https://sts.cancer.gov/v2`). The client also reads `STS_SSL_VERIFY` from the environment to decide whether to verify HTTPS certificates.
+- **What happens:** An `APIClient` instance is created with the base URL (from `--base-url`, or from the `STS_BASE_URL` environment variable, or the default `https://sts-qa.cancer.gov/v2` in [`sts_test_framework/config.py`](../src/sts_test_framework/config.py)). The client also reads `STS_SSL_VERIFY` from the environment to decide whether to verify HTTPS certificates.
 - **Result:** A single client used for all subsequent requests. Every request is `GET`; the client builds the full URL as `base_url + path` (and appends query parameters when provided). Each response is wrapped in an `APIResponse` object (status code, body, parsed JSON if applicable, and request duration).
 - **Used by:** Discovery and the test run both use this client.
 
@@ -480,6 +565,7 @@ A more detailed breakdown of each step is below.
   - Reads the **path parameters** (e.g. `id`, `modelHandle`, `versionString`, `nodeHandle`) and **query parameters** (e.g. `skip`, `limit`) from the spec.
   - **Positive case:** It tries to resolve each path parameter from `test_data` (e.g. `modelHandle` → `test_data["model_handle"]`). If it can resolve all of them, it builds a concrete path by substituting those values into the template (e.g. `/v2/model/ccdi/version/1.0/nodes` → normalized to `/model/ccdi/version/1.0/nodes`). It sets default query parameters (e.g. `skip=0`, `limit=10`) where the spec defines them. It then appends one case with `expected_status: 200` and the operation’s summary and response schema ref.
   - **Negative case:** If the spec documents a 404 or 422 response for that operation, the generator adds a second case that uses an **invalid** value (e.g. `invalid_nonexistent_xyz`) for the path parameters. That case expects 404 or 422.
+  - **Extra generated case types** (pagination, skip-OOB, etc.): see [§3.3.1](#331-advanced-pagination-skip-oob-and-reporting-quirks).
 - **Filtering:** If you passed `--tags` (CLI) or an equivalent filter, only operations whose OpenAPI `tags` match that list are included. If you passed `--no-negative`, negative cases are not added.
 - **Result:** A list of **case** dicts. Each case has at least: `path`, `params` (query or `None`), `expected_status`, `operation_id`, `summary`, `tag`, `negative`, and optionally `response_schema_ref`.
 - **Used by:** The functional runner (and optionally the contract runner) runs one request per case.
@@ -489,8 +575,8 @@ A more detailed breakdown of each step is below.
 #### Step 5: Run the cases (functional run)
 
 - **What happens:** For each case in the list, the runner:
-  1. Calls `**client.get(path, params)`**. The client sends a GET request to `base_url + path` with the given query string, and records the start time. When the response arrives, it parses the body as JSON (if possible) and stores status code, body, parsed JSON, and **duration** in an `APIResponse`.
-  2. Compares `**response.status_code`** to the case’s `**expected_status**`. If they match, the case is marked passed; otherwise it’s failed and an error message is stored (e.g. “Expected 200, got 404” plus a snippet of the body).
+  1. Calls `client.get(path, params)`. The client sends a GET request to `base_url + path` with the given query string, and records the start time. When the response arrives, it parses the body as JSON (if possible) and stores status code, body, parsed JSON, and **duration** in an `APIResponse`.
+  2. Compares `response.status_code` to the case’s `expected_status`. If they match, the case is marked passed; otherwise it’s failed and an error message is stored (e.g. “Expected 200, got 404” plus a snippet of the body).
   3. For **positive cases that expected 200** and have a non-null JSON body, the runner optionally runs a **basic shape check**: it looks at the case’s `response_schema_ref` (e.g. `Node`, `Model`) and verifies that the response is an object (or list/int where appropriate) and that expected top-level keys (e.g. `nanoid`) are present. If the shape check fails, the case is marked failed and the error message is updated.
   4. Appends a **result** dict to the list: `operation_id`, `path`, `expected_status`, `actual_status`, `passed`, `duration`, `error` (if any), `tag`, `negative`.
 - **Result:** A list of result dicts, one per case, each with pass/fail and timing. No files are written in this step.
@@ -519,6 +605,12 @@ These wrap common workflows from the project root. See also **[RUNBOOK.md](RUNBO
 - Runs: `pytest tests/test_manual/ -v --html=reports/manual_tests.html --self-contained-html`
 - Extra arguments are forwarded to pytest (e.g. `-m nullcde`, `-k test_name`).
 - Output: standalone **pytest-html** report at `reports/manual_tests.html`. This is separate from the framework CLI’s `report_*.html` (from `python -m sts_test_framework.cli`). The project depends on `pytest-html` for this path.
+- After pytest, **parser_agent** runs only if **`AWS_ACCESS_KEY_ID`**, **`AWS_SECRET_ACCESS_KEY`**, and **`AWS_REGION`** are all set (optional Bedrock failure summaries; needs boto3). Otherwise the script prints a short notice and exits with pytest’s status only. Sources `scripts/parser_agent_hook.sh`.
+
+**`scripts/run_autogenerated_tests.py`**
+
+- Runs the STS CLI once per data model (see script docstring for `STS_MODELS`, `STS_PARALLEL_WORKERS`).
+- Writes a capture log under `logs/autogenerated_*.log` and, when the three AWS variables are set, runs **parser_agent** on that log after all model runs (same messages and skip behavior as `run_manual_tests.sh`).
 
 **`scripts/run_all_term_verify.sh`**
 
@@ -526,12 +618,14 @@ These wrap common workflows from the project root. See also **[RUNBOOK.md](RUNBO
 - Sets `PYTHONPATH` to include `src/` so `from sts_test_framework...` imports resolve.
 - Forwards all arguments to each script (e.g. `--warn-only`, `--limit 50`). Log lines from parallel jobs may interleave in the terminal.
 - For per-commons scripts, outputs, and flags, see [§6.9 Term-by-value](#69-term-by-value-yaml--sts) below.
+- After all scripts finish, **parser_agent** runs on the term-verify tee log only when the three AWS variables are set (same hook as `run_manual_tests.sh`).
 
 **`scripts/run_full_suite.sh`**
 
 - Runs the three pipelines **in order**: `run_manual_tests.sh` → `run_autogenerated_tests.py` → `run_all_term_verify.sh`.
 - **Always runs all three** stages even if one fails; prints per-stage pass/fail and a short summary. **Exit code 1** if any stage failed (so CI still goes red).
 - Does **not** forward command-line arguments; use each script alone when you need `-m nullcde`, `STS_MODELS`, `--warn-only`, etc.
+- After the summary, **parser_agent** runs on the **full-suite** tee log only when the three AWS variables are set (stage 1 may also run the parser on the manual log when AWS is set, so two parser passes on different logs are possible).
 
 ### 6.9 Term-by-value (YAML → STS)
 
@@ -549,14 +643,16 @@ bash scripts/run_all_term_verify.sh
 PYTHONPATH=src python tests/term_verify/ccdi_term_verify.py
 ```
 
-| Script | Output directory (default) | Final report filenames (under that dir) |
-|--------|----------------------------|----------------------------------------|
-| `python tests/term_verify/ccdi_term_verify.py` | `reports/term_value/CCDI/` | `ccdi_term_endpoint_verification_report.csv`, `ccdi_term_endpoint_verification_report.md` |
-| `python tests/term_verify/c3dc_term_verify.py` | `reports/term_value/C3DC/` | `c3dc_term_endpoint_verification_report.csv`, `.md` |
-| `python tests/term_verify/ctdc_term_verify.py` | `reports/term_value/CTDC/` | `ctdc_term_endpoint_verification_report.csv`, `.md` |
-| `python tests/term_verify/icdc_term_verify.py` | `reports/term_value/ICDC/` | `icdc_term_endpoint_verification_report.csv`, `.md` |
-| `python tests/term_verify/cds_term_verify.py` | `reports/term_value/CDS/` | `cds_term_endpoint_verification_report.csv`, `.md` |
-| `python tests/term_verify/ccdi_dcc_term_verify.py` | `reports/term_value/CCDI-DCC/` | `ccdi_dcc_term_endpoint_verification_report.csv`, `.md` |
+
+| Script                                             | Output directory (default)     | Final report filenames (under that dir)                                                   |
+| -------------------------------------------------- | ------------------------------ | ----------------------------------------------------------------------------------------- |
+| `python tests/term_verify/ccdi_term_verify.py`     | `reports/term_value/CCDI/`     | `ccdi_term_endpoint_verification_report.csv`, `ccdi_term_endpoint_verification_report.md` |
+| `python tests/term_verify/c3dc_term_verify.py`     | `reports/term_value/C3DC/`     | `c3dc_term_endpoint_verification_report.csv`, `.md`                                       |
+| `python tests/term_verify/ctdc_term_verify.py`     | `reports/term_value/CTDC/`     | `ctdc_term_endpoint_verification_report.csv`, `.md`                                       |
+| `python tests/term_verify/icdc_term_verify.py`     | `reports/term_value/ICDC/`     | `icdc_term_endpoint_verification_report.csv`, `.md`                                       |
+| `python tests/term_verify/cds_term_verify.py`      | `reports/term_value/CDS/`      | `cds_term_endpoint_verification_report.csv`, `.md`                                        |
+| `python tests/term_verify/ccdi_dcc_term_verify.py` | `reports/term_value/CCDI-DCC/` | `ccdi_dcc_term_endpoint_verification_report.csv`, `.md`                                   |
+
 
 **CCDI-DCC only:** A fixed allowlist of `(prop_handle, enum_value)` pairs (see `KNOWN_MISSING_IN_STS_DB` in `tests/term_verify/ccdi_dcc_term_verify.py`) marks rows that are expected to be missing from the STS graph DB. Those rows still appear as **failed** in the CSV/MD, but the process exits **0** unless there is at least one **non-allowlisted** failure. Use `--warn-only` to force exit **0** even when unexpected failures exist.
 
@@ -567,7 +663,7 @@ python tests/term_verify/ctdc_term_verify.py --limit 50   # first N rows only
 python tests/term_verify/ctdc_term_verify.py --warn-only  # exit 0 even if some rows fail (failures still listed in reports)
 ```
 
-Each pipeline may write intermediate CSVs during extract/enrich; for triage use the final `*_term_endpoint_verification_report.csv` / `.md` pair. Open the **`.md`** for a readable summary; use the **`.csv`** for per-row filtering.
+Each pipeline may write intermediate CSVs during extract/enrich; for triage use the final `*_term_endpoint_verification_report.csv` / `.md` pair. Open the `.md` report for a readable summary; use the `.csv` for per-row filtering.
 
 ---
 
@@ -578,7 +674,7 @@ Each pipeline may write intermediate CSVs during extract/enrich; for triage use 
 Manual tests are for behavior that isn’t “one endpoint, one status check.” Examples: root/health, or “models count equals length of models list.”
 
 1. Add a new file under `tests/test_manual/`, e.g. `test_consistency.py`.
-2. Write a function that starts with `test`_ and accepts the fixtures you need (e.g. `api_client`, `test_data`).
+2. Write a function whose name starts with `test_` and accepts the fixtures you need (e.g. `api_client`, `test_data`).
 3. Use `api_client.get(path, params)` and assert on `response.status_code` and, if needed, `response.json()`.
 
 Example (already in the project):
@@ -594,11 +690,11 @@ You get `api_client` and `test_data` from `conftest.py`; no need to load the spe
 
 ### 7.2 Changing what gets discovered
 
-If a new endpoint needs a new kind of ID (e.g. a “study” id), you add the discovery logic in `**src/sts_test_framework/discover.py**`:
+If a new endpoint needs a new kind of ID (e.g. a “study” id), you add the discovery logic in `src/sts_test_framework/discover.py`:
 
 1. Add one or more GET requests to obtain that ID (or list of IDs).
 2. Put the result in the `data` dict (e.g. `data["study_id"] = ...`).
-3. In `**generator.py**`, in `_resolve_path_params()` (and optionally `_resolve_query_params()`), add a branch for the new parameter name and set `values[name]` from `test_data` (e.g. `test_data["study_id"]`). If discovery didn’t find a value, return `None` for that endpoint so no positive case is generated until data exists.
+3. In `generator.py`, in `_resolve_path_params()` (and optionally `_resolve_query_params()`), add a branch for the new parameter name and set `values[name]` from `test_data` (e.g. `test_data["study_id"]`). If discovery didn’t find a value, return `None` for that endpoint so no positive case is generated until data exists.
 
 ### 7.3 Changing how cases are generated
 
@@ -609,7 +705,7 @@ If a new endpoint needs a new kind of ID (e.g. a “study” id), you add the di
 
 ### 7.4 Adding or changing assertions (functional runner)
 
-In `**src/sts_test_framework/runners/functional.py`**, each case is run with `client.get(path, params)`. The current logic:
+In `src/sts_test_framework/runners/functional.py`, each case is run with `client.get(path, params)`. The current logic:
 
 - Asserts `response.status_code == expected_status`.
 - For 200, optionally runs `_check_basic_shape(response, case)` (e.g. object has expected keys for a given schema ref).
@@ -637,17 +733,22 @@ The CLI writes **timestamped** report files so each run keeps its own reports (n
 
 Use the JSON for metrics and automation; use the HTML for quick inspection.
 
+The default **CLI** path exercises the **functional** runner only; it does **not** run **contract** validation (`runners.contract` / `jsonschema` on 200 bodies). To use contract checks, call `run_contract_tests` from a custom script or extended entry point ([§7.5](#75-contract-validation-optional)).
+
 ### 8.2 Which file should I open?
 
-| Goal | Open this |
-|------|-----------|
-| Run **all three** report pipelines in one command | `bash scripts/run_full_suite.sh` — then open the artifacts below (`manual_tests.html`, per-model `report_*.html`, term-verify `*.md` / `*.csv`) |
-| Did every generated GET pass (single CLI run)? | Latest `reports/report_*.html` from `python -m sts_test_framework.cli --report reports/` |
-| Did generated GETs pass **per data model**? | Newest `reports/<ModelHandle>/report_*.html` from `python scripts/run_autogenerated_tests.py` |
-| Automate pass rate / export failures | The same run’s `report_*.json` |
-| Manual pytest results as HTML | `reports/manual_tests.html` from `bash scripts/run_manual_tests.sh` |
-| Manual pytest failed (no HTML run) | Pytest console output; or re-run with `run_manual_tests.sh` |
-| Did YAML enum terms resolve in STS? | Latest `reports/term_value/<COMMONS>/*_term_endpoint_verification_report.md` (and matching `.csv` for detail) |
+
+| Goal                                                                | Open this                                                                                                                                       |
+| ------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| Run **all three** report pipelines in one command                   | `bash scripts/run_full_suite.sh` — then open the artifacts below (`manual_tests.html`, per-model `report_*.html`, term-verify `*.md` / `*.csv`) |
+| Did every generated GET pass (single CLI run)?                      | Latest `reports/report_*.html` from `python -m sts_test_framework.cli --report reports/`                                                        |
+| Did generated GETs pass **per data model**?                         | Newest `reports/<ModelHandle>/report_*.html` from `python scripts/run_autogenerated_tests.py`                                                   |
+| Automate pass rate / export failures                                | The same run’s `report_*.json`                                                                                                                  |
+| Manual pytest results as HTML                                       | `reports/manual_tests.html` from `bash scripts/run_manual_tests.sh`                                                                             |
+| Manual pytest failed (no HTML run)                                  | Pytest console output; or re-run with `run_manual_tests.sh`                                                                                     |
+| Did YAML enum terms resolve in STS?                                 | Latest `reports/term_value/<COMMONS>/*_term_endpoint_verification_report.md` (and matching `.csv` for detail)                                   |
+| AI **failure summary** after a run (AWS creds set; failures in log) | Newest `reports/agent-summaries/summary_*.md`                                                                                                   |
+
 
 ### 8.3 Running in CI (e.g. GitHub Actions)
 
@@ -672,12 +773,28 @@ Or run pytest and optionally run the CLI for reports:
 
 If any case fails, the CLI exits with code 1. You can publish the contents of `reports/` (or the latest `report_*.html`) as an artifact so the team can open the report after each run. Use `--quiet` in CI if you want minimal log output.
 
+### 8.4 Optional AI failure summaries (parser agent)
+
+The **parser_agent** module is an **optional**, **informational** helper: it **parses a capture log** for test failures (`[parser_agent/detect.py](../parser_agent/detect.py)`), and when failures are found, calls **Amazon Bedrock** to produce a short Markdown interpretation (`[parser_agent/summarize.py](../parser_agent/summarize.py)`). It **does not** change pytest, CLI, or shell exit codes (the CLI entry point always exits 0 so local runs and CI are not blocked by Bedrock errors).
+
+**Output:** timestamped files under `reports/agent-summaries/summary_<timestamp>.md` (see `[parser_agent/report.py](../parser_agent/report.py)`).
+
+**When it runs automatically:** only if `**AWS_ACCESS_KEY_ID`**, `**AWS_SECRET_ACCESS_KEY**`, and `**AWS_REGION**` are all set and **boto3** is installed. The convenience drivers source `scripts/parser_agent_hook.sh` and invoke `python3 parser_agent/main.py <logfile>` after the relevant stage; timing per script is described in [§6.8](#68-convenience-shell-scripts). If the required variables are not set, the call to Bedrock is skipped.
+
+**Manual run** (from repo root, after a failing run produced a log):
+
+```bash
+python3 parser_agent/main.py logs/manual_2026-03-25T00-00-00.log
+```
+
+**Optional:** override the Bedrock model with `**BEDROCK_MODEL_ID`** (default in `[parser_agent/config.py](../parser_agent/config.py)`). `**AWS_DEFAULT_REGION**` is read as the region when setting up the client.
+
 ---
 
 ## 9. Glossary
 
 - **API** – Application Programming Interface; here, the HTTP API of the STS server.
-- **Base URL** – The root URL of the API (e.g. `https://sts.cancer.gov/v2`). All request paths are appended to this.
+- **Base URL** – The root URL of the STS v2 API including `/v2` (default in tests: `https://sts-qa.cancer.gov/v2`; prod example: `https://sts.cancer.gov/v2`). All request paths are appended to this.
 - **Discovery** – The one-time process of calling the API to get real IDs and values (model handle, node handle, tag key/value, etc.) used to build test requests.
 - **Endpoint** – One path + method combination (e.g. GET `/v2/models/`).
 - **Fixture** – In pytest, a reusable piece of setup (e.g. `api_client`, `test_data`) provided to test functions by name.
@@ -720,8 +837,8 @@ If any case fails, the CLI exits with code 1. You can publish the contents of `r
 
 **Where do I document our team’s conventions?**
 
-- Use this ONBOARDING.md for how the framework works and how to maintain it. Use the README for quick start and high-level purpose. You can add a short “Team conventions” section to the README or a separate CONTRIBUTING.md if needed.
+- Use this ONBOARDING.md for how the framework works and how to maintain it. Use the README for quick start and high-level purpose. 
 
 ---
 
-For quick reference and install/run commands, see the [README](../README.md). For the original design and CI notes, the content above supersedes the previous FRAMEWORK.md and is the single place for full onboarding and maintenance guidance.
+For quick reference and install/run commands, see the [README](../README.md). This guide is the single place for full onboarding, design context, and maintenance guidance.
