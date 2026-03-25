@@ -13,7 +13,15 @@
 set -uo pipefail
 
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+_SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+# shellcheck source=parser_agent_hook.sh
+source "$_SCRIPT_DIR/parser_agent_hook.sh"
 export PYTHONPATH="${REPO_ROOT}/src${PYTHONPATH:+:$PYTHONPATH}"
+
+parser_agent_print_preamble "run_all_term_verify.sh" "after term-verify scripts"
+
+mkdir -p "$REPO_ROOT/logs"
+LOGFILE="$REPO_ROOT/logs/term_verify_$(date +%Y-%m-%dT%H-%M-%S).log"
 
 WORKERS="${STS_TERM_VERIFY_WORKERS:-2}"
 case "$WORKERS" in
@@ -53,9 +61,9 @@ printf '%s\0' "${scripts[@]}" | xargs -0 -n1 -P"$WORKERS" -I{} bash -c '
     echo "$name" >>"'"$failfile"'"
   fi
   echo
-' _ {} "$@"
+' _ {} "$@" 2>&1 | tee "$LOGFILE"
 
-xc=$?
+xc=${PIPESTATUS[0]}
 
 failed=()
 if [ -s "$failfile" ]; then
@@ -66,15 +74,29 @@ fi
 
 echo "--- Summary: $count script(s) run, ${#failed[@]} failed ---"
 
+final_rc=0
 if [ "${#failed[@]}" -gt 0 ]; then
   printf '  FAILED: %s\n' "${failed[@]}" >&2
-  exit 1
-fi
-
-if [ "$xc" -ne 0 ]; then
+  final_rc=1
+elif [ "$xc" -ne 0 ]; then
   echo "xargs exited with $xc" >&2
-  exit "$xc"
+  final_rc="$xc"
+else
+  echo "All term-verify scripts completed successfully."
 fi
 
-echo "All term-verify scripts completed successfully."
-exit 0
+# parser_agent reads LOGFILE only; lines above were printed after tee. Append the same summary so detection/Bedrock see failures.
+{
+  echo ""
+  echo "--- Summary (appended for parser_agent; same as console above) ---"
+  echo "--- Summary: $count script(s) run, ${#failed[@]} failed ---"
+  if [ "${#failed[@]}" -gt 0 ]; then
+    printf '  FAILED: %s\n' "${failed[@]}"
+  fi
+  if [ "$xc" -ne 0 ] && [ "${#failed[@]}" -eq 0 ]; then
+    echo "xargs exited with $xc"
+  fi
+} >>"$LOGFILE"
+
+parser_agent_run_if_ok "$REPO_ROOT" "$LOGFILE"
+exit "$final_rc"
