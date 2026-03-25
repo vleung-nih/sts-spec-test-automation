@@ -1,24 +1,24 @@
-# STS v2 API Test Framework Agent
+# STS v2 API Test Framework
 
 This repository is an **API test framework** for the **Simple Terminology Server (STS) v2** HTTP API. STS exposes oncology data models (nodes, properties, allowed values/terms) from a graph backing store; clients use it to resolve model metadata consistently across programs such as the Cancer Research Data Commons.
 
-The framework treats an OpenAPI spec document, loaded as **`spec/v2.yaml`**, as the contract: it loads the spec, **discovers** live IDs in the target environment, **generates** positive and negative HTTP test cases, and **runs** them through a shared client. Results are written as **JSON and HTML** reports (per run and, for multi-model runs, under `reports/<ModelHandle>/`). Alongside that generated suite, the repo ships **"manual" integration tests** (pytest), and **term-by-value** verification pipelines that compare vendored data-model YAML enums to STS term endpoints per data commons.
+The framework treats the OpenAPI spec document STS is built on (loaded as `spec/v2.yaml`) as the contract: it loads the spec, **discovers** live IDs in the target environment, **generates** positive and negative HTTP test cases, and **runs** them through a shared client. Results are written as **JSON and HTML** reports (per run and, for multi-model runs, under `reports/<ModelHandle>/`). Alongside that generated suite, the repo ships **"manual" integration tests** (pytest), and **term-by-value** verification pipelines that compare vendored data-model YAML enums to STS term endpoints per data commons.
 
-Use **[docs/RUNBOOK.md](docs/RUNBOOK.md)** for the shortest install-and-run path, and **[docs/ONBOARDING.md](docs/ONBOARDING.md)** for explanations on system design and functionality, and how to extend tests.
-
-**AI-assisted log parsing:** If required environment variables are all set, the **`parser_agent`** module parses captured run logs for test failures, calls **Amazon Bedrock** for analysis, and writes summary reports under **`reports/agent-summaries/`**. The test scripts invoke this hook after their runs ([ONBOARDING §6.8](docs/ONBOARDING.md#68-convenience-shell-scripts)); it is informational only, does not run when all tests pass, and does not change pytest or CLI exit codes. Details and manual invocation: [ONBOARDING §8.4](docs/ONBOARDING.md#84-optional-ai-failure-summaries-parser-agent).
+**AI-assisted log parsing:** If required environment variables are set, the `**parser_agent`** module parses captured run logs for test failures, calls **Amazon Bedrock** for analysis, and writes summary reports under `**reports/agent-summaries/`**. The test scripts invoke this hook after their runs.
 
 ## Documentation
 
-| Doc | Use it for |
-| --- | --- |
-| [docs/ONBOARDING.md](docs/ONBOARDING.md) | Concepts, design decisions, project layout, environment variables, pytest/CLI, term-verify, extending tests, reports/CI. |
-| [docs/RUNBOOK.md](docs/RUNBOOK.md) | Shortest command checklist; script extras (`-m`, env filters). |
+
+| Doc                                      | Use it for                                                                                                                |
+| ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| [docs/ONBOARDING.md](docs/ONBOARDING.md) | Overview and functionalities, sytem design decisions, project layout, environment variables, extending tests, reports/CI. |
+| [docs/RUNBOOK.md](docs/RUNBOOK.md)       | Shortest command checklist; script extras.                                                                                |
+
 
 ## Dependencies
 
 - **Python 3.9+**
-- Everything else comes from the **Install** steps using [`requirements.txt`](requirements.txt) and [`pyproject.toml`](pyproject.toml).
+- Everything else comes from the **Install** steps using `[requirements.txt](requirements.txt)` and `[pyproject.toml](pyproject.toml)`.
 
 ## Install
 
@@ -31,25 +31,6 @@ source .venv/bin/activate   # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 pip install -e .
 ```
-
-## Set environment (optional)
-
-By default the framework targets **STS QA** and no extra configuration is needed. Set **`STS_BASE_URL`** when you need another environment; the value must be the v2 API root including `/v2`.
-
-Example — run tests against **stage** for one shell session (adjust the URL to match your deployment):
-
-```bash
-export STS_BASE_URL=https://sts-stage.cancer.gov/v2
-bash scripts/run_full_suite.sh
-```
-
-Or set it for a single command without `export`:
-
-```bash
-STS_BASE_URL=https://sts-stage.cancer.gov/v2 bash scripts/run_full_suite.sh
-```
-
-More variables and detail: [RUNBOOK — Configuration](docs/RUNBOOK.md#configuration-optional) and [ONBOARDING §6.2](docs/ONBOARDING.md#62-configuration-environment-variables).
 
 ## Run tests (three scripts OR optional full suite)
 
@@ -69,8 +50,26 @@ python scripts/run_autogenerated_tests.py
 bash scripts/run_all_term_verify.sh
 ```
 
-- **`run_manual_tests.sh`** — Manual integration tests under `tests/test_manual/` with pytest-html → `reports/manual_tests.html`.
-- **`run_autogenerated_tests.py`** — OpenAPI spec-generated functional suite: runs the **`sts_test_framework` CLI once per data model**; timestamped HTML/JSON under `reports/<ModelHandle>/`.
-- **`run_all_term_verify.sh`** — Term-by-value pipelines: vendored data model YAML enums vs STS term endpoints; outputs under `reports/term_value/<COMMONS>/`.
+- `**run_manual_tests.sh**` — Manual integration tests under `tests/test_manual/` cover behaviors that don’t fit the one-endpoint-per-case generator; outputs with pytest-html → `reports/manual_tests.html`.
+- `**run_autogenerated_tests.py**` — OpenAPI spec-generated functional suite: runs the `**sts_test_framework` CLI once per data model**; timestamped HTML/JSON under `reports/<ModelHandle>/`.
+- `**run_all_term_verify.sh`** — Term-by-value pipelines: vendored data model YAML enums vs STS term endpoints; outputs under `reports/term_value/<COMMONS>/`.
 
 CLI flags, full pytest, and per-commons term-verify details: [ONBOARDING §6](docs/ONBOARDING.md#6-how-to-run-the-framework).
+
+## Change environment (optional)
+
+By default, the framework targets **STS QA** and no extra configuration is needed. Set `**STS_BASE_URL`** when you need another environment; the value must be the v2 API root including `/v2`.
+
+Example — run tests against **stage** for one shell session (adjust the URL to match your deployment):
+
+```bash
+export STS_BASE_URL=https://sts-stage.cancer.gov/v2
+bash scripts/run_full_suite.sh
+```
+
+Or set it for a single command without `export`:
+
+```bash
+STS_BASE_URL=https://sts-stage.cancer.gov/v2 bash scripts/run_full_suite.sh
+```
+
