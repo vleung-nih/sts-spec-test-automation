@@ -1,6 +1,6 @@
 # STS Test Framework – Quick start
 
-Short path: install, then **three scripts** that cover OpenAPI functional tests (HTML per model), manual pytest (HTML), and term-by-value pipelines. Default target is **QA**; set `STS_BASE_URL` only for another environment. For concepts, every environment variable, CLI flags, optional pytest, and troubleshooting, see **[ONBOARDING.md](ONBOARDING.md)**.
+Short path: install, then **three scripts** that cover OpenAPI functional tests (HTML per model), manual pytest (HTML), and term-by-value pipelines. Default target is **QA**; set `STS_BASE_URL` only for another environment. For concepts, every environment variable, CLI flags, optional pytest, and troubleshooting, see **[ONBOARDING.md](ONBOARDING.md)**. Optional deep dives: [generator pagination / skip-OOB](ONBOARDING.md#331-advanced-pagination-skip-oob-and-reporting-quirks), [caDSR & legacy CDE-PVS manual tests](ONBOARDING.md#621-manual-tests-cadsr-and-legacy-cde-pvs-reference).
 
 ---
 
