@@ -125,9 +125,35 @@ The runner sends `GET base_url + path` with the given `params`, then asserts tha
 
 Skip this subsection unless you are debugging generated cases or report rows for pagination.
 
-- **Positive pagination (`__pagination_positive`):** For operations that document **200** and have **both** integer `skip` and `limit` query parameters, the generator adds one extra positive case with `skip=0`, `limit=1`, `operation_id` suffix `__pagination_positive`, and `pagination_assert_max_items: 1`. The functional runner checks that when the response body is a JSON **array**, `len(body) <= 1` (i.e. the API respects `limit`). Non-array JSON skips this check.
-- **Pagination pair (`__pagination_pair`):** For the same operations **except** `GET .../terms/model-pvs/...` and `GET .../terms/cde-pvs/.../pvs` (those stay covered by other rules), the generator adds a case that runs **two** GETs: **A** with `skip=0`, `limit=0` (equivalent to default first page for this API), then **B** with `skip=1`, `limit=1`. If **A** is a JSON array with **at least two** elements, the runner asserts `B[0] == A[1]` (skip shifts the window). If **A** is not a list or has fewer than two items, the pair comparison is skipped (case still passes). Case fields: `pagination_pair_assert`, `pagination_pair_params_a`, `pagination_pair_params_b`. For property `**/terms`** and `**/terms/count**` routes, **404** with body `{"detail":"Property exists, but does not use an acceptable value set."}` is treated as **pass** for request **A** or **B** (same rule as the default positive GET for that property). **Logging/reports:** CLI and HTML show **one row** per pair case: when **B** runs, Path and Duration reflect **B only** (`skip=1`, `limit=1` and B’s latency); if B was skipped (not enough items in A), Path still shows **B**’s URL with a short note and duration is A’s request time; if **A** fails before B, Path shows **A**’s URL. JSON results include `pagination_pair_b_executed`, `duration_pair_a`, `duration_pair_b`, `pagination_pair_wall_time` (A+B), and optional `pagination_pair_display_note`.
-- **Huge skip / past end (`__skip_oob`):** `skip` set to `9_999_999` (constant `SKIP_OOB` in `generator.py`), `operation_id` suffix `__skip_oob`. **Default:** for GETs with integer `skip` that document **404**, expect **404** + `expected_json: {"detail": "Not found."}` (`negative: true`). **Exceptions (always emitted when these routes have `skip`):** `GET .../terms/cde-pvs/{id}/{version}/pvs` expects **200** + `[]` (`expected_json`); `GET .../terms/model-pvs/{model}/{property}` expects **200** + a **non-empty** JSON array of objects each with `permissibleValues: []` (checked via `skip_oob_assert: model_pvs_empty_permissible_values`; an empty top-level `[]` fails with an error that asks to investigate). Those two use `negative: false`. The runner and pytest assert status and body per case.
+- **Positive pagination (`__pagination_positive`)**
+  - **When added:** Operations that document **200** and have integer `skip` + `limit` query params.
+  - **Generated case:** `skip=0`, `limit=1`, operation id suffix `__pagination_positive`, `pagination_assert_max_items: 1`.
+  - **Assertion:** If body is a JSON array, runner checks `len(body) <= 1`. Non-array JSON skips this check.
+
+- **Pagination pair (`__pagination_pair`)**
+  - **When added:** Same operations as above, except `GET .../terms/model-pvs/...` and `GET .../terms/cde-pvs/.../pvs`.
+  - **Generated requests:**  
+    - **A:** `skip=0`, `limit=0` (default first-page behavior for this API)  
+    - **B:** `skip=1`, `limit=1`
+  - **Assertion logic:**  
+    - If A is a JSON array with at least 2 elements, assert `B[0] == A[1]`.  
+    - If A is not an array or has fewer than 2 elements, skip pair comparison (case still passes).
+  - **Case fields:** `pagination_pair_assert`, `pagination_pair_params_a`, `pagination_pair_params_b`.
+  - **Special pass rule:** For `/terms` and `/terms/count` routes, `404` with `{"detail":"Property exists, but does not use an acceptable value set."}` is treated as pass for request A or B.
+  - **Reporting behavior (one row per pair case):**  
+    - If B runs, Path/Duration reflect **B** only (`skip=1`, `limit=1`, B latency).  
+    - If B is skipped, Path still shows B URL with a note; duration is A request time.  
+    - If A fails before B, Path shows A URL.
+  - **JSON result extras:** `pagination_pair_b_executed`, `duration_pair_a`, `duration_pair_b`, `pagination_pair_wall_time` (A+B), optional `pagination_pair_display_note`.
+
+- **Huge skip / past end (`__skip_oob`)**
+  - **Generated case:** `skip=9_999_999` (constant `SKIP_OOB`), operation id suffix `__skip_oob`.
+  - **Default expectation:** For GETs with integer `skip` that document **404**, expect `404` + `expected_json: {"detail": "Not found."}` with `negative: true`.
+  - **Exceptions (always emitted when route has `skip`):**  
+    - `GET .../terms/cde-pvs/{id}/{version}/pvs` expects `200` + `[]` (`expected_json`).  
+    - `GET .../terms/model-pvs/{model}/{property}` expects `200` + **non-empty** JSON array where each object has `permissibleValues: []` (`skip_oob_assert: model_pvs_empty_permissible_values`).
+  - **Exception note:** For model-pvs skip-OOB, top-level `[]` is treated as failure and flagged for investigation.
+  - **Negative flag:** Exception cases use `negative: false`.
 
 **Pagination / skip-OOB case fields:** optional `pagination_assert_max_items` for `__pagination_positive`; optional `pagination_pair_assert` / `pagination_pair_params_a` / `pagination_pair_params_b` for `__pagination_pair`; optional `skip_oob_assert` for model-pvs skip-OOB (in addition to `response_schema_ref` / `expected_json` where used).
 
@@ -340,11 +366,42 @@ STS_BASE_URL=https://my-dev-server.local/v2 STS_SSL_VERIFY=false pytest tests/ -
 
 Skip unless you run or debug these manual modules (`CADSR_*` env vars in [§6.2](#62-configuration-environment-variables)).
 
-**Multi-concept / URL-PV CDE checks:** `tests/test_manual/test_cadsr_multi_concept_cdes.py` — marker `cadsr_multi_concept_pv`, cases in `data/cadsr_multi_concept_cdes_cases.json`. Each case should set `case_type` explicitly in JSON (`multi_concept_pv` or `url_pv_yaml_enum_model_pvs`); if omitted, it defaults to `multi_concept_pv`. caDSR checks apply to all cases. For `multi_concept_pv`, STS **cde-pvs** must have exactly one row for `pv_value` with `ncit_concept_code: null` and `synonyms: []`, and each listed **model-pvs** must have exactly one row for that same `value` with null ncit and empty synonyms; caDSR must expose multiple `ValueMeaning.Concepts` / `conceptCode` values. For `url_pv_yaml_enum_model_pvs`, STS cde-pvs is not checked (STS may map the URL row to an NCIt code and synonyms on cde-pvs); model-pvs must not include the URL, must match the property’s YAML Enum multiset (`yaml_enum.file` / `yaml_enum.property`), and every row must have null ncit and empty synonyms. Optional `pytest_param_id` shortens pytest display names. Run: `pytest tests/test_manual/test_cadsr_multi_concept_cdes.py -m cadsr_multi_concept_pv -v`.
+- **Multi-concept / URL-PV CDE checks**
+  - **Test file:** `tests/test_manual/test_cadsr_multi_concept_cdes.py`
+  - **Marker:** `cadsr_multi_concept_pv`
+  - **Cases file:** `data/cadsr_multi_concept_cdes_cases.json`
+  - **Case typing:** Set `case_type` explicitly (`multi_concept_pv` or `url_pv_yaml_enum_model_pvs`); default is `multi_concept_pv`.
+  - **For `multi_concept_pv`:**
+    - STS **cde-pvs** must return exactly one row for `pv_value` with `ncit_concept_code: null` and `synonyms: []`.
+    - Each listed **model-pvs** endpoint must return exactly one row for the same `value` with null NCIt and empty synonyms.
+    - caDSR must expose multiple `ValueMeaning.Concepts` / `conceptCode` values.
+  - **For `url_pv_yaml_enum_model_pvs`:**
+    - STS cde-pvs is not checked.
+    - model-pvs must exclude the URL, match YAML enum multiset (`yaml_enum.file` / `yaml_enum.property`), and return rows with null NCIt + empty synonyms.
+  - **Optional display helper:** `pytest_param_id` shortens pytest case names.
+  - **Run command:** `pytest tests/test_manual/test_cadsr_multi_concept_cdes.py -m cadsr_multi_concept_pv -v`
 
-**caDSR vs STS PVS (Designations / DRAFT NEW):** `tests/test_manual/test_cadsr_alternatevalues_draftnew_cdes.py` includes two markers. `cadsr_alt_pvs` compares caDSR **Designations** names to STS **cde-pvs** and **model-pvs** (`data/cadsr_alternate_values_cases.json`). `cadsr_draft_new` asserts caDSR `workflowStatus` is **DRAFT NEW**, matches `longName` to STS `CDEFullName` (exact string match), and that **every** caDSR `PermissibleValues[].value` (multiset) appears on STS **cde-pvs** rows whose `ncit_concept_code` is non-null (extra STS rows with null NCIt are ignored). Optionally, if a case includes `model`, `model_version`, and `property` (same fields as `cadsr_alternate_values_cases.json`), the test also calls STS model-pvs and asserts the same PV multiset subset on NCIt-coded rows only (model-pvs does not return `CDEFullName` — no name check there). Case list: `data/cadsr_draft_new_cases.json`; CDE **version** for the cde-pvs URL is read from live caDSR. Set `CADSR_BASE_URL` if not using the default public API host; `STS_SSL_VERIFY` applies to both STS and caDSR clients (`APIClient`). For Designations tests, by default **every** designation **name** (all types) must appear as a STS `value`; set `CADSR_DESIGNATION_TYPES` (e.g. `MCL Alt Name`) to only require those types.
+- **caDSR vs STS PVS (Designations / DRAFT NEW)**
+  - **Test file:** `tests/test_manual/test_cadsr_alternatevalues_draftnew_cdes.py`
+  - **Markers:** `cadsr_alt_pvs`, `cadsr_draft_new`
+  - **`cadsr_alt_pvs`:** Compares caDSR **Designations** names to STS **cde-pvs** and **model-pvs** (`data/cadsr_alternate_values_cases.json`).
+  - **`cadsr_draft_new` assertions:**
+    - caDSR `workflowStatus` is **DRAFT NEW**
+    - caDSR `longName` exactly matches STS `CDEFullName`
+    - Every caDSR `PermissibleValues[].value` appears in STS cde-pvs rows with non-null `ncit_concept_code` (rows with null NCIt are ignored)
+  - **Optional model-pvs check:** If case has `model`, `model_version`, and `property`, also assert PV multiset subset against STS model-pvs NCIt-coded rows (no `CDEFullName` check there).
+  - **Cases file:** `data/cadsr_draft_new_cases.json`
+  - **Other notes:**
+    - CDE version for cde-pvs URL is read from live caDSR.
+    - Set `CADSR_BASE_URL` to use non-default caDSR host.
+    - `STS_SSL_VERIFY` applies to both STS and caDSR `APIClient` calls.
+    - By default all designation types are required; set `CADSR_DESIGNATION_TYPES` (for example `MCL Alt Name`) to filter required types.
 
-**Legacy CDE-PVS vs v2:** Some manual tests compare the pre-v2 route `GET {origin}/cde-pvs/{id}/{version}?format=json` to v2 `GET .../terms/cde-pvs/{id}/{version}/pvs`. The **origin** is derived from `STS_BASE_URL` by stripping a trailing `/v2` (`sts_test_framework.config.sts_legacy_origin()`). You do **not** set a second base URL unless your deployment serves legacy paths on a different host—in that case adjust `STS_BASE_URL` or extend the helper. See `tests/test_manual/test_cde_pvs_legacy_vs_v2.py` and marker `cde_pvs_legacy`.
+- **Legacy CDE-PVS vs v2**
+  - **Comparison:** Legacy `GET {origin}/cde-pvs/{id}/{version}?format=json` vs v2 `GET .../terms/cde-pvs/{id}/{version}/pvs`
+  - **Origin derivation:** `origin` comes from `STS_BASE_URL` with trailing `/v2` removed via `sts_test_framework.config.sts_legacy_origin()`.
+  - **Config rule:** Do not set a second base URL unless legacy routes are hosted elsewhere; then adjust `STS_BASE_URL` or extend the helper.
+  - **Reference test:** `tests/test_manual/test_cde_pvs_legacy_vs_v2.py` (marker `cde_pvs_legacy`)
 
 ### 6.3 Two ways to run: pytest vs CLI
 
@@ -482,7 +539,7 @@ A more detailed breakdown of each step is below.
 
 #### Step 2: Create the HTTP client
 
-- **What happens:** An `APIClient` instance is created with the base URL (from `--base-url`, or from the `STS_BASE_URL` environment variable, or the default `https://sts-qa.cancer.gov/v2` in `[sts_test_framework/config.py](../src/sts_test_framework/config.py)`). The client also reads `STS_SSL_VERIFY` from the environment to decide whether to verify HTTPS certificates.
+- **What happens:** An `APIClient` instance is created with the base URL (from `--base-url`, or from the `STS_BASE_URL` environment variable, or the default `https://sts-qa.cancer.gov/v2` in [`sts_test_framework/config.py`](../src/sts_test_framework/config.py)). The client also reads `STS_SSL_VERIFY` from the environment to decide whether to verify HTTPS certificates.
 - **Result:** A single client used for all subsequent requests. Every request is `GET`; the client builds the full URL as `base_url + path` (and appends query parameters when provided). Each response is wrapped in an `APIResponse` object (status code, body, parsed JSON if applicable, and request duration).
 - **Used by:** Discovery and the test run both use this client.
 
@@ -543,19 +600,19 @@ When you run **pytest** only, step 6 does not run unless you add a pytest hook o
 
 These wrap common workflows from the project root. See also **[RUNBOOK.md](RUNBOOK.md)** for a short summary table.
 
-`**scripts/run_manual_tests.sh`**
+**`scripts/run_manual_tests.sh`**
 
 - Runs: `pytest tests/test_manual/ -v --html=reports/manual_tests.html --self-contained-html`
 - Extra arguments are forwarded to pytest (e.g. `-m nullcde`, `-k test_name`).
 - Output: standalone **pytest-html** report at `reports/manual_tests.html`. This is separate from the framework CLI’s `report_*.html` (from `python -m sts_test_framework.cli`). The project depends on `pytest-html` for this path.
-- After pytest, **parser_agent** runs only if `**AWS_ACCESS_KEY_ID`**, `**AWS_SECRET_ACCESS_KEY**`, and `**AWS_REGION**` are all set (optional Bedrock failure summaries; needs boto3). Otherwise the script prints a short notice and exits with pytest’s status only. Sources `scripts/parser_agent_hook.sh`.
+- After pytest, **parser_agent** runs only if **`AWS_ACCESS_KEY_ID`**, **`AWS_SECRET_ACCESS_KEY`**, and **`AWS_REGION`** are all set (optional Bedrock failure summaries; needs boto3). Otherwise the script prints a short notice and exits with pytest’s status only. Sources `scripts/parser_agent_hook.sh`.
 
-`**scripts/run_autogenerated_tests.py**`
+**`scripts/run_autogenerated_tests.py`**
 
 - Runs the STS CLI once per data model (see script docstring for `STS_MODELS`, `STS_PARALLEL_WORKERS`).
 - Writes a capture log under `logs/autogenerated_*.log` and, when the three AWS variables are set, runs **parser_agent** on that log after all model runs (same messages and skip behavior as `run_manual_tests.sh`).
 
-`**scripts/run_all_term_verify.sh`**
+**`scripts/run_all_term_verify.sh`**
 
 - Runs every `tests/term_verify/*_term_verify.py` with **limited parallelism** (default **2** concurrent commons pipelines via `STS_TERM_VERIFY_WORKERS`; set to `1` for strictly sequential runs).
 - Sets `PYTHONPATH` to include `src/` so `from sts_test_framework...` imports resolve.
@@ -563,7 +620,7 @@ These wrap common workflows from the project root. See also **[RUNBOOK.md](RUNBO
 - For per-commons scripts, outputs, and flags, see [§6.9 Term-by-value](#69-term-by-value-yaml--sts) below.
 - After all scripts finish, **parser_agent** runs on the term-verify tee log only when the three AWS variables are set (same hook as `run_manual_tests.sh`).
 
-`**scripts/run_full_suite.sh`**
+**`scripts/run_full_suite.sh`**
 
 - Runs the three pipelines **in order**: `run_manual_tests.sh` → `run_autogenerated_tests.py` → `run_all_term_verify.sh`.
 - **Always runs all three** stages even if one fails; prints per-stage pass/fail and a short summary. **Exit code 1** if any stage failed (so CI still goes red).
@@ -606,7 +663,7 @@ python tests/term_verify/ctdc_term_verify.py --limit 50   # first N rows only
 python tests/term_verify/ctdc_term_verify.py --warn-only  # exit 0 even if some rows fail (failures still listed in reports)
 ```
 
-Each pipeline may write intermediate CSVs during extract/enrich; for triage use the final `*_term_endpoint_verification_report.csv` / `.md` pair. Open the `**.md**` report for a readable summary; use the `**.csv**` for per-row filtering.
+Each pipeline may write intermediate CSVs during extract/enrich; for triage use the final `*_term_endpoint_verification_report.csv` / `.md` pair. Open the `.md` report for a readable summary; use the `.csv` for per-row filtering.
 
 ---
 
