@@ -45,7 +45,9 @@ def write_html_report(
         duration_str = f"{duration * 1000:.0f} ms" if duration is not None else "-"
         note = r.get("pagination_pair_display_note")
         if note:
-            duration_str = f"{duration_str} — {_esc(note)}"
+            # Do not escape here: the full cell is passed through _esc() in _template.
+            # Escaping the note twice turns "<2" into visible "&lt;2" in the browser.
+            duration_str = f"{duration_str} — {note}"
         path_raw = r.get("path_display") or r.get("path", "")
         path_cell = f"<code>{_esc(path_raw)}</code>"
         rows.append({
