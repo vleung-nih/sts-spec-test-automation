@@ -85,6 +85,7 @@ from urllib.parse import quote
 import pytest
 
 from sts_test_framework.client import APIClient, full_url
+from tests.test_manual.conftest import get_cadsr_data_element_with_retry
 from sts_test_framework.config import cadsr_base_url, project_root
 
 logger = logging.getLogger(__name__)
@@ -521,7 +522,7 @@ def test_cadsr_designations_match_cde_pvs_and_model_pvs(
     cadsr_path = f"/DataElement/{quote(cde_id, safe='')}"
     cadsr_url = full_url(cadsr_api_client, cadsr_path)
     print(f"  caDSR GET: {cadsr_url}")
-    cadsr_res = cadsr_api_client.get(cadsr_path)
+    cadsr_res = get_cadsr_data_element_with_retry(cadsr_api_client, cadsr_path)
     print(
         f"  caDSR HTTP: {cadsr_res.status_code} in {cadsr_res.duration:.3f}s"
     )
@@ -664,7 +665,7 @@ def test_cadsr_draft_new_matches_sts_cde_pvs(
     cadsr_path = f"/DataElement/{quote(cde_id, safe='')}"
     cadsr_url = full_url(cadsr_api_client, cadsr_path)
     print(f"  caDSR GET: {cadsr_url}")
-    cadsr_res = cadsr_api_client.get(cadsr_path)
+    cadsr_res = get_cadsr_data_element_with_retry(cadsr_api_client, cadsr_path)
     print(
         f"  caDSR HTTP: {cadsr_res.status_code} in {cadsr_res.duration:.3f}s"
     )

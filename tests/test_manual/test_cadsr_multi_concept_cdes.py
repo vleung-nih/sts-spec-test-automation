@@ -51,6 +51,7 @@ import pytest
 import yaml
 
 from sts_test_framework.client import APIClient, full_url
+from tests.test_manual.conftest import get_cadsr_data_element_with_retry
 from sts_test_framework.config import cadsr_base_url, project_root
 
 logger = logging.getLogger(__name__)
@@ -298,7 +299,7 @@ def test_cadsr_multi_concept_pv_sts_null_ncit_and_synonyms(
     cadsr_path = f"/DataElement/{quote(cde_id, safe='')}"
     cadsr_url = full_url(cadsr_api_client, cadsr_path)
     print(f"  caDSR GET: {cadsr_url}")
-    cadsr_res = cadsr_api_client.get(cadsr_path)
+    cadsr_res = get_cadsr_data_element_with_retry(cadsr_api_client, cadsr_path)
     assert cadsr_res.status_code == 200, (
         f"caDSR GET {cadsr_url} expected 200, got {cadsr_res.status_code}"
     )
