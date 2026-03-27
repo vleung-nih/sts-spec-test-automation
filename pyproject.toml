@@ -25,6 +25,7 @@ agent = [
 
 [project.scripts]
 sts-test = "sts_test_framework.cli:main"
+sts-test-dcc = "sts_test_framework.dcc_cli:main_dcc"
 
 [tool.setuptools.packages.find]
 where = ["src"]

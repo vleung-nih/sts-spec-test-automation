@@ -18,6 +18,32 @@ def _environment_label(host_or_env: str) -> str:
     return host_or_env or ""
 
 
+def write_html_report_dcc(
+    summary: dict,
+    results: list[dict],
+    out_path: str | Path,
+    base_url: str | None = None,
+    environment: str | None = None,
+    model_handle: str | None = None,
+    model_version: str | None = None,
+    discovery_info: dict | None = None,
+    cases_generated: dict | None = None,
+) -> None:
+    """Write HTML report for CCDI Federation (DCC) runs (title preset)."""
+    write_html_report(
+        summary,
+        results,
+        out_path,
+        title="CCDI Federation (DCC) API Test Report",
+        base_url=base_url,
+        environment=environment,
+        model_handle=model_handle,
+        model_version=model_version,
+        discovery_info=discovery_info,
+        cases_generated=cases_generated,
+    )
+
+
 def write_html_report(
     summary: dict,
     results: list[dict],

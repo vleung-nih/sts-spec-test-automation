@@ -298,6 +298,18 @@ def run_functional_tests(
     return results
 
 
+def run_functional_tests_dcc(
+    client: "APIClient",
+    cases: list[dict],
+    on_case_done: Callable[[dict], None] | None = None,
+) -> list[dict]:
+    """
+    Run DCC-generated cases (same HTTP runner as STS; cases may set
+    ``pagination_list_key`` for ``data``-envelope list responses).
+    """
+    return run_functional_tests(client, cases, on_case_done=on_case_done)
+
+
 def _check_basic_shape(response: APIResponse, case: dict) -> tuple[bool, str | None]:
     """
     After status matches, optionally validate JSON kind vs ``response_schema_ref``.
@@ -342,11 +354,15 @@ def _check_basic_shape(response: APIResponse, case: dict) -> tuple[bool, str | N
                 )
         return True, None
     max_items = case.get("pagination_assert_max_items")
-    if max_items is not None and isinstance(data, list):
-        if len(data) > max_items:
+    if max_items is not None:
+        list_key = case.get("pagination_list_key")
+        target = data
+        if list_key and isinstance(data, dict):
+            target = data.get(list_key)
+        if isinstance(target, list) and len(target) > max_items:
             return (
                 False,
-                f"Pagination: response list length {len(data)} exceeds limit "
+                f"Pagination: response list length {len(target)} exceeds limit "
                 f"(expected at most {max_items})",
             )
     if data is None:

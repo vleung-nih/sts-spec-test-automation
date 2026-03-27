@@ -1,0 +1,4066 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "CCDI Federation Service",
+    "description": "REST API for querying CCDI-DCC  graph database",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/api/v1/subject": {
+      "get": {
+        "tags": [
+          "Subject"
+        ],
+        "summary": "List subjects",
+        "description": "Get a paginated list of subjects with optional filtering",
+        "operationId": "list_subjects_api_v1_subject_get",
+        "parameters": [
+          {
+            "name": "sex",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Matches any subject where the `sex` field matches the string provided.",
+              "enum": [
+                "M",
+                "F",
+                "U"
+              ],
+              "title": "Sex"
+            },
+            "description": "Matches any subject where the `sex` field matches the string provided."
+          },
+          {
+            "name": "race",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Matches any subject where any member of the `race` field matches any of the provided values. Multiple race values can be provided separated by `||` (double pipe). The race field in the database may contain semicolon-separated values (e.g., 'Asian;White'), and the filter will match if any of the provided values is found within those values. Only `||` is accepted as a delimiter; all other characters are treated as part of a single value.",
+              "enum": [
+                "Not allowed to collect",
+                "Native Hawaiian or other Pacific Islander",
+                "Not Reported",
+                "Unknown",
+                "American Indian or Alaska Native",
+                "Asian",
+                "Black or African American",
+                "White"
+              ],
+              "title": "Race"
+            },
+            "description": "Matches any subject where any member of the `race` field matches any of the provided values. Multiple race values can be provided separated by `||` (double pipe). The race field in the database may contain semicolon-separated values (e.g., 'Asian;White'), and the filter will match if any of the provided values is found within those values. Only `||` is accepted as a delimiter; all other characters are treated as part of a single value."
+          },
+          {
+            "name": "ethnicity",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Matches any subject where the `ethnicity` field matches the string provided. Ethnicity is derived from race values: if race contains 'Hispanic or Latino', ethnicity is 'Hispanic or Latino'; otherwise 'Not reported'. Only these two values are accepted.",
+              "enum": [
+                "Hispanic or Latino",
+                "Not reported"
+              ],
+              "title": "Ethnicity"
+            },
+            "description": "Matches any subject where the `ethnicity` field matches the string provided. Ethnicity is derived from race values: if race contains 'Hispanic or Latino', ethnicity is 'Hispanic or Latino'; otherwise 'Not reported'. Only these two values are accepted."
+          },
+          {
+            "name": "identifiers",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Matches any subject where any member of the `identifiers` field matches the string provided. **Note:** a logical OR (`||`) is performed across the values when determining whether the subject should be included in the results.",
+              "title": "Identifiers"
+            },
+            "description": "Matches any subject where any member of the `identifiers` field matches the string provided. **Note:** a logical OR (`||`) is performed across the values when determining whether the subject should be included in the results."
+          },
+          {
+            "name": "vital_status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Matches any subject where the `vital_status` field matches the string provided.",
+              "enum": [
+                "Alive",
+                "Dead",
+                "Not reported",
+                "Unknown",
+                "Unspecified"
+              ],
+              "title": "Vital Status"
+            },
+            "description": "Matches any subject where the `vital_status` field matches the string provided."
+          },
+          {
+            "name": "age_at_vital_status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Matches any subject where the `age_at_vital_status` field matches the string provided.",
+              "title": "Age At Vital Status"
+            },
+            "description": "Matches any subject where the `age_at_vital_status` field matches the string provided."
+          },
+          {
+            "name": "depositions",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter by study_id. Matches any subject where the `depositions` field contains the specified study_id value (e.g., `phs002431`). Returns all participants that belong to the specified study. Example: `depositions=phs002431` will return all participants in study `phs002431`.",
+              "examples": {
+                "default": {
+                  "summary": "Example study_id",
+                  "value": "phs002431"
+                }
+              },
+              "title": "Depositions"
+            },
+            "description": "Filter by study_id. Matches any subject where the `depositions` field contains the specified study_id value (e.g., `phs002431`). Returns all participants that belong to the specified study. Example: `depositions=phs002431` will return all participants in study `phs002431`."
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The page to retrieve.\n\nThis is a 1-based index of a page within a page set. The value of page must default to 1 when this parameter is not provided.",
+              "default": 1,
+              "title": "Page"
+            },
+            "description": "The page to retrieve.\n\nThis is a 1-based index of a page within a page set. The value of page must default to 1 when this parameter is not provided."
+          },
+          {
+            "name": "per_page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "maximum": 1000,
+                  "minimum": 1
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The number of results per page.\n\nEach server can select its own default value for per_page when this parameter is not provided. \n\nThat said, the convention within the community is to use 50 as a default value if any value is equally reasonable.\n\nThe maximum allowed value is 1000.",
+              "title": "Per Page"
+            },
+            "description": "The number of results per page.\n\nEach server can select its own default value for per_page when this parameter is not provided. \n\nThat said, the convention within the community is to use 50 as a default value if any value is equally reasonable.\n\nThe maximum allowed value is 1000."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful operation.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SubjectResponse"
+                },
+                "example": {
+                  "summary": {
+                    "counts": {
+                      "all": 500,
+                      "current": 20
+                    }
+                  },
+                  "data": [
+                    {
+                      "id": {
+                        "namespace": {
+                          "organization": "CCDI-DCC",
+                          "name": "phs002430"
+                        },
+                        "name": "SUBJECT-001"
+                      },
+                      "kind": "Participant",
+                      "metadata": {
+                        "sex": {
+                          "value": "F"
+                        },
+                        "race": [
+                          {
+                            "value": "White"
+                          }
+                        ],
+                        "ethnicity": {
+                          "value": "Not reported"
+                        },
+                        "identifiers": [
+                          {
+                            "value": {
+                              "namespace": {
+                                "organization": "CCDI-DCC",
+                                "name": "phs002430"
+                              },
+                              "name": "SUBJECT-001",
+                              "type": "Linked",
+                              "server": "https://dcc.ccdi.cancer.gov/api/v1/subject/CCDI-DCC/phs002430/SUBJECT-001"
+                            }
+                          }
+                        ],
+                        "vital_status": {
+                          "value": "Alive"
+                        },
+                        "age_at_vital_status": {
+                          "value": 45
+                        },
+                        "associated_diagnoses": [
+                          {
+                            "value": "Neuroblastoma",
+                            "comment": "null"
+                          }
+                        ],
+                        "depositions": [
+                          {
+                            "kind": "dbGaP",
+                            "value": "phs002430"
+                          }
+                        ]
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorsResponse"
+                },
+                "example": {
+                  "errors": [
+                    {
+                      "kind": "NotFound",
+                      "entity": "Subjects",
+                      "message": "Unable to find data for your request.",
+                      "reason": "No data found."
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid query or path parameters.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorsResponse"
+                },
+                "example": {
+                  "errors": [
+                    {
+                      "kind": "InvalidParameters",
+                      "parameters": [],
+                      "message": "Invalid query parameter(s) provided.",
+                      "reason": "Unknown query parameter(s)"
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/subject/by/{field}/count": {
+      "get": {
+        "tags": [
+          "Subject"
+        ],
+        "summary": "Groups the subjects by the specified metadata field and returns counts.",
+        "description": "Groups the subjects by the specified metadata field and returns counts.",
+        "operationId": "subjects_by_count",
+        "parameters": [
+          {
+            "name": "field",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "The field to group by and count with.",
+              "examples": {
+                "sex": {
+                  "value": "sex",
+                  "summary": "Count by sex"
+                },
+                "race": {
+                  "value": "race",
+                  "summary": "Count by race"
+                },
+                "ethnicity": {
+                  "value": "ethnicity",
+                  "summary": "Count by ethnicity"
+                },
+                "vital_status": {
+                  "value": "vital_status",
+                  "summary": "Count by vital status"
+                },
+                "age_at_vital_status": {
+                  "value": "age_at_vital_status",
+                  "summary": "Count by age at vital status"
+                },
+                "associated_diagnoses": {
+                  "value": "associated_diagnoses",
+                  "summary": "Count by associated diagnoses"
+                }
+              },
+              "enum": [
+                "sex",
+                "race",
+                "ethnicity",
+                "vital_status",
+                "age_at_vital_status",
+                "associated_diagnoses"
+              ],
+              "title": "Field"
+            },
+            "description": "The field to group by and count with."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful operation.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CountResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Unsupported field.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorsResponse"
+                },
+                "example": {
+                  "errors": [
+                    {
+                      "kind": "UnsupportedField",
+                      "field": "wrong field",
+                      "message": "Field is not supported for subjects.",
+                      "reason": "This field is not present for subjects."
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid query or path parameters.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorsResponse"
+                },
+                "example": {
+                  "errors": [
+                    {
+                      "kind": "InvalidParameters",
+                      "parameters": [],
+                      "message": "Invalid query parameter(s) provided.",
+                      "reason": "Unknown query parameter(s)"
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/subject/{organization}/{namespace}/{name}": {
+      "get": {
+        "tags": [
+          "Subject"
+        ],
+        "summary": "Get subject by identifier",
+        "description": "Get a specific subject by organization, namespace, and name. Organization defaults to 'CCDI-DCC'. Namespace is the study_id value from the database. 'name' is the participant ID. This endpoint does not accept query parameters.",
+        "operationId": "get_subject_api_v1_subject__organization___namespace___name__get",
+        "parameters": [
+          {
+            "name": "organization",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Organization"
+            }
+          },
+          {
+            "name": "namespace",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Namespace"
+            }
+          },
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Name"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful operation.",
+            "content": {
+              "application/json": {
+                "schema": {},
+                "example": {
+                  "id": {
+                    "namespace": {
+                      "organization": "CCDI-DCC",
+                      "name": "phs002430"
+                    },
+                    "name": "TARGET-10-DCC001"
+                  },
+                  "kind": "Participant",
+                  "metadata": {
+                    "sex": {
+                      "value": "M"
+                    },
+                    "race": [
+                      {
+                        "value": "White"
+                      }
+                    ],
+                    "ethnicity": {
+                      "value": "Not reported"
+                    },
+                    "identifiers": [
+                      {
+                        "value": {
+                          "namespace": {
+                            "organization": "CCDI-DCC",
+                            "name": "phs002430"
+                          },
+                          "name": "TARGET-10-DCC001",
+                          "type": "Linked",
+                          "server": "https://dcc.ccdi.cancer.gov/api/v1/subject/CCDI-DCC/phs002430/TARGET-10-DCC001"
+                        }
+                      }
+                    ],
+                    "vital_status": {
+                      "value": "Alive"
+                    },
+                    "age_at_vital_status": {
+                      "value": 15
+                    },
+                    "associated_diagnoses": [
+                      {
+                        "value": "Neuroblastoma",
+                        "comment": "null"
+                      }
+                    ],
+                    "depositions": [
+                      {
+                        "kind": "dbGaP",
+                        "value": "phs002430"
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorsResponse"
+                },
+                "example": {
+                  "errors": [
+                    {
+                      "kind": "NotFound",
+                      "entity": "Subjects",
+                      "message": "Unable to find data for your request.",
+                      "reason": "No data found."
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid query or path parameters.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorsResponse"
+                },
+                "example": {
+                  "errors": [
+                    {
+                      "kind": "InvalidParameters",
+                      "parameters": [],
+                      "message": "Invalid query parameter(s) provided.",
+                      "reason": "Unknown query parameter(s)"
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/subject/summary": {
+      "get": {
+        "tags": [
+          "Subject"
+        ],
+        "summary": "Reports summary information for the subjects known by this server.",
+        "description": "Returns the total count of all subjects. This endpoint does not accept any query parameters.",
+        "operationId": "subject_summary",
+        "responses": {
+          "200": {
+            "description": "Summary counts successfully returned",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SummaryResponse"
+                },
+                "example": {
+                  "counts": {
+                    "total": 25696
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/sample": {
+      "get": {
+        "tags": [
+          "Sample"
+        ],
+        "summary": "Gets the samples known by this server.",
+        "description": "Gets the samples known by this server.\n\n### Pagination\n\nThis endpoint is paginated. Users may override the default pagination\nparameters by providing one or more of the pagination-related query\nparameters below.\n\n### Filtering\n\nAll harmonized (top-level) and unharmonized (nested under the\n`metadata.unharmonized` key) metadata fields are filterable. To achieve\nthis, you can provide the field name as a [`String`]. Filtering follows the\nfollowing rules:\n\n* For single-value metadata field, the sample is included in the results if\nits value _exactly_ matches the query string. Matches are case-sensitive.\n* For multiple-value metadata fields, the sample is included in the results\nif any of its values for the field _exactly_ match the query string (a\nlogical OR (`||`)). Matches are case-sensitive.\n* When the metadata field is `null` (in the case of singular or\nmultiple-valued metadata fields) or empty, the sample is not included.\n* When multiple fields are provided as filters, a logical AND (`&&`) strings\ntogether the predicates. In other words, all filters must match for a\nsample to be returned. Note that this means that servers do not natively\nsupport logical OR (`||`) across multiple fields: that must be done by\ncalling this endpoint with each of your desired queries and performing a\nset union of those samples out of band.\n\n### Ordering\n\nThis endpoint has default ordering requirementsâ€”those details are documented\nin the `responses::Samples` schema.",
+        "operationId": "sample_index",
+        "parameters": [
+          {
+            "name": "disease_phase",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Matches any sample where the `disease_phase` field matches the string provided.",
+              "title": "Disease Phase"
+            },
+            "description": "Matches any sample where the `disease_phase` field matches the string provided."
+          },
+          {
+            "name": "anatomical_sites",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Matches any sample where the `anatomical_sites` field matches the string provided.\n\n**Note:** a logical OR (`||`) is performed across the values when determining whether the subject should be included in the results.",
+              "title": "Anatomical Sites"
+            },
+            "description": "Matches any sample where the `anatomical_sites` field matches the string provided.\n\n**Note:** a logical OR (`||`) is performed across the values when determining whether the subject should be included in the results."
+          },
+          {
+            "name": "library_selection_method",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Matches any sample where the `library_selection_method` field matches the string provided.",
+              "title": "Library Selection Method"
+            },
+            "description": "Matches any sample where the `library_selection_method` field matches the string provided."
+          },
+          {
+            "name": "library_strategy",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Matches any sample where the `library_strategy` field matches the string provided.",
+              "title": "Library Strategy"
+            },
+            "description": "Matches any sample where the `library_strategy` field matches the string provided."
+          },
+          {
+            "name": "library_source_material",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Matches any sample where the `library_source_material` field matches the string provided.",
+              "title": "Library Source Material"
+            },
+            "description": "Matches any sample where the `library_source_material` field matches the string provided."
+          },
+          {
+            "name": "preservation_method",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Matches any sample where the `preservation_method` field matches the string provided.",
+              "title": "Preservation Method"
+            },
+            "description": "Matches any sample where the `preservation_method` field matches the string provided."
+          },
+          {
+            "name": "tumor_grade",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Matches any sample where the `tumor_grade` field matches the string provided.",
+              "title": "Tumor Grade"
+            },
+            "description": "Matches any sample where the `tumor_grade` field matches the string provided."
+          },
+          {
+            "name": "specimen_molecular_analyte_type",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Matches any sample where the `specimen_molecular_analyte_type` field matches the string provided.",
+              "title": "Specimen Molecular Analyte Type"
+            },
+            "description": "Matches any sample where the `specimen_molecular_analyte_type` field matches the string provided."
+          },
+          {
+            "name": "tissue_type",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Matches any sample where the `tissue_type` field matches the string provided.",
+              "title": "Tissue Type"
+            },
+            "description": "Matches any sample where the `tissue_type` field matches the string provided."
+          },
+          {
+            "name": "tumor_classification",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Matches any sample where the `tumor_classification` field matches the string provided.",
+              "title": "Tumor Classification"
+            },
+            "description": "Matches any sample where the `tumor_classification` field matches the string provided."
+          },
+          {
+            "name": "age_at_diagnosis",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Matches any sample where the `age_at_diagnosis` field matches the string provided.",
+              "title": "Age At Diagnosis"
+            },
+            "description": "Matches any sample where the `age_at_diagnosis` field matches the string provided."
+          },
+          {
+            "name": "age_at_collection",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Matches any sample where the `age_at_collection` field matches the string provided.",
+              "title": "Age At Collection"
+            },
+            "description": "Matches any sample where the `age_at_collection` field matches the string provided."
+          },
+          {
+            "name": "tumor_tissue_morphology",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Matches any sample where the `tumor_tissue_morphology` field matches the string provided.",
+              "title": "Tumor Tissue Morphology"
+            },
+            "description": "Matches any sample where the `tumor_tissue_morphology` field matches the string provided."
+          },
+          {
+            "name": "depositions",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Matches any sample where any member of the `depositions` fields match the string provided.\n\n**Note:** a logical OR (`||`) is performed across the values when determining whether the sample should be included in the results.",
+              "title": "Depositions"
+            },
+            "description": "Matches any sample where any member of the `depositions` fields match the string provided.\n\n**Note:** a logical OR (`||`) is performed across the values when determining whether the sample should be included in the results."
+          },
+          {
+            "name": "diagnosis",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Matches any sample where the `diagnosis` field matches the string provided.",
+              "title": "Diagnosis"
+            },
+            "description": "Matches any sample where the `diagnosis` field matches the string provided."
+          },
+          {
+            "name": "identifiers",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Matches any sample where the `sample_id` field matches the string provided.\n\n**Note:** a logical OR (`||`) is performed across the values when determining whether the sample should be included in the results.",
+              "title": "Identifiers"
+            },
+            "description": "Matches any sample where the `sample_id` field matches the string provided.\n\n**Note:** a logical OR (`||`) is performed across the values when determining whether the sample should be included in the results."
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The page to retrieve.\n\nThis is a 1-based index of a page within a page set. The value of page must default to 1 when this parameter is not provided.",
+              "default": 1,
+              "title": "Page"
+            },
+            "description": "The page to retrieve.\n\nThis is a 1-based index of a page within a page set. The value of page must default to 1 when this parameter is not provided."
+          },
+          {
+            "name": "per_page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "maximum": 1000,
+                  "minimum": 1
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The number of results per page.\n\nEach server can select its own default value for per_page when this parameter is not provided. \n\nThat said, the convention within the community is to use 50 as a default value if any value is equally reasonable.\n\nThe maximum allowed value is 1000.",
+              "title": "Per Page"
+            },
+            "description": "The number of results per page.\n\nEach server can select its own default value for per_page when this parameter is not provided. \n\nThat said, the convention within the community is to use 50 as a default value if any value is equally reasonable.\n\nThe maximum allowed value is 1000."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful operation.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SamplesResponse"
+                },
+                "example": {
+                  "summary": {
+                    "counts": {
+                      "all": 500,
+                      "current": 20
+                    }
+                  },
+                  "data": [
+                    {
+                      "id": {
+                        "namespace": {
+                          "organization": "CCDI-DCC",
+                          "name": "phs002430"
+                        },
+                        "name": "TARGET-10-DCC001-03A-01R"
+                      },
+                      "subject": {
+                        "namespace": {
+                          "organization": "CCDI-DCC",
+                          "name": "phs002430"
+                        },
+                        "name": "TARGET-10-DCC001"
+                      },
+                      "metadata": {
+                        "disease_phase": {
+                          "value": "Initial Diagnosis"
+                        },
+                        "diagnosis": {
+                          "value": "Neuroblastoma",
+                          "comment": "null"
+                        },
+                        "age_at_diagnosis": {
+                          "value": 10
+                        },
+                        "anatomical_sites": [
+                          {
+                            "value": "C71.9 : Brain, NOS"
+                          }
+                        ],
+                        "tissue_type": {
+                          "value": "Tumor"
+                        },
+                        "tumor_classification": {
+                          "value": "Primary"
+                        },
+                        "library_strategy": {
+                          "value": "WXS"
+                        },
+                        "library_source_material": {
+                          "value": "Genomic DNA"
+                        },
+                        "depositions": [
+                          {
+                            "kind": "dbGaP",
+                            "value": "phs002430"
+                          }
+                        ],
+                        "identifiers": [
+                          {
+                            "value": {
+                              "namespace": {
+                                "organization": "CCDI-DCC",
+                                "name": "phs002430"
+                              },
+                              "name": "TARGET-10-DCC001-03A-01R",
+                              "server": "https://dcc.ccdi.cancer.gov/api/v1/sample/CCDI-DCC/phs002430/TARGET-10-DCC001-03A-01R",
+                              "type": "Linked"
+                            }
+                          }
+                        ]
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorsResponse"
+                },
+                "example": {
+                  "errors": [
+                    {
+                      "kind": "NotFound",
+                      "entity": "Samples",
+                      "message": "Unable to find data for your request.",
+                      "reason": "No data found."
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid query or path parameters.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorsResponse"
+                },
+                "example": {
+                  "errors": [
+                    {
+                      "kind": "InvalidParameters",
+                      "parameters": [],
+                      "message": "Invalid query parameter(s) provided.",
+                      "reason": "Unknown query parameter(s)"
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/sample/by/{field}/count": {
+      "get": {
+        "tags": [
+          "Sample"
+        ],
+        "summary": "Groups the samples by the specified metadata field and returns counts.",
+        "description": "Groups the samples by the specified metadata field and returns counts.",
+        "operationId": "samples_by_count",
+        "parameters": [
+          {
+            "name": "field",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "The field to group by and count with.",
+              "enum": [
+                "disease_phase",
+                "anatomical_sites",
+                "library_selection_method",
+                "library_strategy",
+                "library_source_material",
+                "preservation_method",
+                "tumor_grade",
+                "specimen_molecular_analyte_type",
+                "tissue_type",
+                "tumor_classification",
+                "age_at_diagnosis",
+                "age_at_collection",
+                "tumor_tissue_morphology",
+                "diagnosis"
+              ],
+              "title": "Field"
+            },
+            "description": "The field to group by and count with."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful operation.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CountResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Unsupported field.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorsResponse"
+                },
+                "example": {
+                  "errors": [
+                    {
+                      "kind": "UnsupportedField",
+                      "field": "wrong field",
+                      "message": "Field is not supported for samples.",
+                      "reason": "This field is not present for samples."
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/sample/{organization}/{namespace}/{name}": {
+      "get": {
+        "tags": [
+          "Sample"
+        ],
+        "summary": "Gets the sample matching the provided name (if the sample exists).",
+        "description": "Gets the sample matching the provided name (if the sample exists). Organization defaults to CCDI-DCC.",
+        "operationId": "sample_show",
+        "parameters": [
+          {
+            "name": "organization",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Organization"
+            }
+          },
+          {
+            "name": "namespace",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Namespace"
+            }
+          },
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Name"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful operation.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Sample"
+                },
+                "example": {
+                  "id": {
+                    "namespace": {
+                      "organization": "CCDI-DCC",
+                      "name": "phs002430"
+                    },
+                    "name": "TARGET-10-DCC001-03A-01R"
+                  },
+                  "subject": {
+                    "namespace": {
+                      "organization": "CCDI-DCC",
+                      "name": "phs002430"
+                    },
+                    "name": "TARGET-10-DCC001"
+                  },
+                  "metadata": {
+                    "disease_phase": {
+                      "value": "Initial Diagnosis"
+                    },
+                    "diagnosis": {
+                      "value": "Neuroblastoma",
+                      "comment": "null"
+                    },
+                    "age_at_diagnosis": {
+                      "value": 10
+                    },
+                    "anatomical_sites": [
+                      {
+                        "value": "C71.9 : Brain, NOS"
+                      }
+                    ],
+                    "tissue_type": {
+                      "value": "Tumor"
+                    },
+                    "tumor_classification": {
+                      "value": "Primary"
+                    },
+                    "library_strategy": {
+                      "value": "WXS"
+                    },
+                    "library_source_material": {
+                      "value": "Genomic DNA"
+                    },
+                    "depositions": [
+                      {
+                        "kind": "dbGaP",
+                        "value": "phs002430"
+                      }
+                    ],
+                    "identifiers": [
+                      {
+                        "value": {
+                          "namespace": {
+                            "organization": "CCDI-DCC",
+                            "name": "phs002430"
+                          },
+                          "name": "TARGET-10-DCC001-03A-01R",
+                          "server": "https://dcc.ccdi.cancer.gov/api/v1/sample/CCDI-DCC/phs002430/TARGET-10-DCC001-03A-01R",
+                          "type": "Linked"
+                        }
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorsResponse"
+                },
+                "example": {
+                  "errors": [
+                    {
+                      "kind": "NotFound",
+                      "entity": "Samples",
+                      "message": "Unable to find data for your request.",
+                      "reason": "No data found."
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid query or path parameters.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorsResponse"
+                },
+                "example": {
+                  "errors": [
+                    {
+                      "kind": "InvalidParameters",
+                      "parameters": [],
+                      "message": "Invalid query parameter(s) provided.",
+                      "reason": "Unknown query parameter(s)"
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/sample/summary": {
+      "get": {
+        "tags": [
+          "Sample"
+        ],
+        "summary": "Reports summary information for the samples known by this server.",
+        "description": "Reports summary information for the samples known by this server.",
+        "operationId": "sample_summary",
+        "responses": {
+          "200": {
+            "description": "Successful operation.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SummaryResponse"
+                },
+                "example": {
+                  "counts": {
+                    "total": 50000
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/sample-diagnosis": {
+      "get": {
+        "tags": [
+          "Experimental"
+        ],
+        "summary": "Experimental: Filter the samples known by this server by free-text diagnosis search.",
+        "description": "Experimental: Filter the samples known by this server by free-text diagnosis search.\n\n### Diagnosis Filtering\n\nThis endpoint supports the experimental `search` parameter.\nFor this parameter, the sample is included in the results if the value of its\nits `diagnosis` field _contains_ the query string, or if an unharmonized field\ntreated by the implementer as a diagnosis field contains that query string.\nMatches are case-insensitive.\n\n### Pagination\n\nThis endpoint is paginated. Users may override the default pagination\nparameters by providing one or more of the pagination-related query\nparameters below.\n\n### Additional Filtering\n\nAll harmonized (top-level) and unharmonized (nested under the\n`metadata.unharmonized` key) metadata fields are filterable. To achieve\nthis, you can provide the field name as a [`String`]. Filtering follows the\nfollowing rules:\n\n* For single-value metadata field, the sample is included in the results if\nits value _exactly_ matches the query string. Matches are case-sensitive.\n* For multiple-value metadata fields, the sample is included in the results\nif any of its values for the field _exactly_ match the query string (a\nlogical OR [`||`]). Matches are case-sensitive.\n* When the metadata field is `null` (in the case of singular or\nmultiple-valued metadata fields) or empty, the sample is not included.\n* When multiple fields are provided as filters, a logical AND (`&&`) strings\ntogether the predicates. In other words, all filters must match for a\nsample to be returned. Note that this means that servers do not natively\nsupport logical OR (`||`) across multiple fields: that must be done by\ncalling this endpoint with each of your desired queries and performing a\nset union of those samples out of band.\n\n### Ordering\n\nThis endpoint has default ordering requirementsâ€”those details are documented\nin the `responses::Samples` schema.\n\nNote: This API is experimental and is subject to change without being considered\nas a breaking change.",
+        "operationId": "sample_diagnosis_search",
+        "parameters": [
+          {
+            "name": "search",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Matches any sample where the `diagnosis` field contains the string provided, ignoring case. When provided, this enables experimental case-insensitive partial matching. When not provided, the endpoint behaves exactly like `/sample` endpoint.",
+              "title": "Search"
+            },
+            "description": "Matches any sample where the `diagnosis` field contains the string provided, ignoring case. When provided, this enables experimental case-insensitive partial matching. When not provided, the endpoint behaves exactly like `/sample` endpoint."
+          },
+          {
+            "name": "disease_phase",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Matches any sample where the `disease_phase` field matches the string provided.",
+              "title": "Disease Phase"
+            },
+            "description": "Matches any sample where the `disease_phase` field matches the string provided."
+          },
+          {
+            "name": "anatomical_sites",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Matches any sample where the `anatomical_sites` field matches the string provided.\n\n**Note:** a logical OR (`||`) is performed across the values when determining whether the subject should be included in the results.",
+              "title": "Anatomical Sites"
+            },
+            "description": "Matches any sample where the `anatomical_sites` field matches the string provided.\n\n**Note:** a logical OR (`||`) is performed across the values when determining whether the subject should be included in the results."
+          },
+          {
+            "name": "library_selection_method",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Matches any sample where the `library_selection_method` field matches the string provided.",
+              "title": "Library Selection Method"
+            },
+            "description": "Matches any sample where the `library_selection_method` field matches the string provided."
+          },
+          {
+            "name": "library_strategy",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Matches any sample where the `library_strategy` field matches the string provided.",
+              "title": "Library Strategy"
+            },
+            "description": "Matches any sample where the `library_strategy` field matches the string provided."
+          },
+          {
+            "name": "library_source_material",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Matches any sample where the `library_source_material` field matches the string provided.",
+              "title": "Library Source Material"
+            },
+            "description": "Matches any sample where the `library_source_material` field matches the string provided."
+          },
+          {
+            "name": "preservation_method",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Matches any sample where the `preservation_method` field matches the string provided.",
+              "title": "Preservation Method"
+            },
+            "description": "Matches any sample where the `preservation_method` field matches the string provided."
+          },
+          {
+            "name": "tumor_grade",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Matches any sample where the `tumor_grade` field matches the string provided.",
+              "title": "Tumor Grade"
+            },
+            "description": "Matches any sample where the `tumor_grade` field matches the string provided."
+          },
+          {
+            "name": "specimen_molecular_analyte_type",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Matches any sample where the `specimen_molecular_analyte_type` field matches the string provided.",
+              "title": "Specimen Molecular Analyte Type"
+            },
+            "description": "Matches any sample where the `specimen_molecular_analyte_type` field matches the string provided."
+          },
+          {
+            "name": "tissue_type",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Matches any sample where the `tissue_type` field matches the string provided.",
+              "title": "Tissue Type"
+            },
+            "description": "Matches any sample where the `tissue_type` field matches the string provided."
+          },
+          {
+            "name": "tumor_classification",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Matches any sample where the `tumor_classification` field matches the string provided.",
+              "title": "Tumor Classification"
+            },
+            "description": "Matches any sample where the `tumor_classification` field matches the string provided."
+          },
+          {
+            "name": "age_at_diagnosis",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Matches any sample where the `age_at_diagnosis` field matches the string provided.",
+              "title": "Age At Diagnosis"
+            },
+            "description": "Matches any sample where the `age_at_diagnosis` field matches the string provided."
+          },
+          {
+            "name": "age_at_collection",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Matches any sample where the `age_at_collection` field matches the string provided.",
+              "title": "Age At Collection"
+            },
+            "description": "Matches any sample where the `age_at_collection` field matches the string provided."
+          },
+          {
+            "name": "tumor_tissue_morphology",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Matches any sample where the `tumor_tissue_morphology` field matches the string provided.",
+              "title": "Tumor Tissue Morphology"
+            },
+            "description": "Matches any sample where the `tumor_tissue_morphology` field matches the string provided."
+          },
+          {
+            "name": "depositions",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Matches any sample where any member of the `depositions` fields match the string provided.\n\n**Note:** a logical OR (`||`) is performed across the values when determining whether the sample should be included in the results.",
+              "title": "Depositions"
+            },
+            "description": "Matches any sample where any member of the `depositions` fields match the string provided.\n\n**Note:** a logical OR (`||`) is performed across the values when determining whether the sample should be included in the results."
+          },
+          {
+            "name": "identifiers",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Matches any sample where the `sample_id` field matches the string provided.\n\n**Note:** a logical OR (`||`) is performed across the values when determining whether the sample should be included in the results.",
+              "title": "Identifiers"
+            },
+            "description": "Matches any sample where the `sample_id` field matches the string provided.\n\n**Note:** a logical OR (`||`) is performed across the values when determining whether the sample should be included in the results."
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The page to retrieve.\n\nThis is a 1-based index of a page within a page set. The value of page must default to 1 when this parameter is not provided.",
+              "default": 1,
+              "title": "Page"
+            },
+            "description": "The page to retrieve.\n\nThis is a 1-based index of a page within a page set. The value of page must default to 1 when this parameter is not provided."
+          },
+          {
+            "name": "per_page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "maximum": 1000,
+                  "minimum": 1
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The number of results per page.\n\nEach server can select its own default value for per_page when this parameter is not provided. \n\nThat said, the convention within the community is to use 50 as a default value if any value is equally reasonable.\n\nThe maximum allowed value is 1000.",
+              "title": "Per Page"
+            },
+            "description": "The number of results per page.\n\nEach server can select its own default value for per_page when this parameter is not provided. \n\nThat said, the convention within the community is to use 50 as a default value if any value is equally reasonable.\n\nThe maximum allowed value is 1000."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful operation.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SamplesResponse"
+                },
+                "example": {
+                  "summary": {
+                    "counts": {
+                      "all": 150,
+                      "current": 10
+                    }
+                  },
+                  "data": [
+                    {
+                      "id": {
+                        "namespace": {
+                          "organization": "CCDI-DCC",
+                          "name": "phs002430"
+                        },
+                        "name": "TARGET-10-DCC001-03A-01R"
+                      },
+                      "subject": {
+                        "namespace": {
+                          "organization": "CCDI-DCC",
+                          "name": "phs002430"
+                        },
+                        "name": "TARGET-10-DCC001"
+                      },
+                      "metadata": {
+                        "disease_phase": {
+                          "value": "Initial Diagnosis"
+                        },
+                        "diagnosis": {
+                          "value": "Neuroblastoma",
+                          "comment": "null"
+                        },
+                        "age_at_diagnosis": {
+                          "value": 10
+                        },
+                        "age_at_collection": {
+                          "value": 10
+                        },
+                        "anatomical_sites": [
+                          {
+                            "value": "C71.9 : Brain, NOS"
+                          }
+                        ],
+                        "tissue_type": {
+                          "value": "Tumor"
+                        },
+                        "tumor_classification": {
+                          "value": "Primary"
+                        },
+                        "tumor_grade": {
+                          "value": "G2 Moderately Differentiated"
+                        },
+                        "tumor_tissue_morphology": {
+                          "value": "Neuroblastoma"
+                        },
+                        "library_strategy": {
+                          "value": "WXS"
+                        },
+                        "library_selection_method": {
+                          "value": "Hybrid Selection"
+                        },
+                        "library_source_material": {
+                          "value": "Genomic DNA"
+                        },
+                        "preservation_method": {
+                          "value": "Frozen"
+                        },
+                        "specimen_molecular_analyte_type": {
+                          "value": "DNA"
+                        },
+                        "depositions": [
+                          {
+                            "kind": "dbGaP",
+                            "value": "phs002430"
+                          }
+                        ],
+                        "identifiers": [
+                          {
+                            "value": {
+                              "namespace": {
+                                "organization": "CCDI-DCC",
+                                "name": "phs002430"
+                              },
+                              "name": "TARGET-10-DCC001-03A-01R",
+                              "server": "https://dcc.ccdi.cancer.gov/api/v1/sample/CCDI-DCC/phs002430/TARGET-10-DCC001-03A-01R",
+                              "type": "Linked"
+                            }
+                          }
+                        ]
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorsResponse"
+                },
+                "example": {
+                  "errors": [
+                    {
+                      "kind": "NotFound",
+                      "entity": "Samples",
+                      "message": "Unable to find data for your request.",
+                      "reason": "No data found."
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid query or path parameters.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorsResponse"
+                },
+                "example": {
+                  "errors": [
+                    {
+                      "kind": "InvalidParameters",
+                      "parameters": [],
+                      "message": "Invalid query parameter(s) provided.",
+                      "reason": "Unknown query parameter(s)"
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/subject-diagnosis": {
+      "get": {
+        "tags": [
+          "Experimental"
+        ],
+        "summary": "Experimental: Filter the subjects known by this server by free-text diagnosis search.",
+        "description": "Experimental: Filter the subjects known by this server by free-text diagnosis search.\n\n### Diagnosis Filtering\n\nThis endpoint supports the experimental `search` parameter.\nFor this parameter, the subject is included in the results if the value of its\nits `associated_diagnoses` field has at least one diagnosis which _contains_ the query string.\nMatches are case-insensitive.\n\n### Pagination\n\nThis endpoint is paginated. Users may override the default pagination\nparameters by providing one or more of the pagination-related query\nparameters below.\n\n### Additional Filtering\n\nAll harmonized (top-level) and unharmonized (nested under the\n`metadata.unharmonized` key) metadata fields are filterable. To achieve\nthis, you can provide the field name as a [`String`]. Filtering follows the\nfollowing rules:\n\n* For single-value metadata field, the subject is included in the results if\nits value _exactly_ matches the query string. Matches are case-sensitive.\n* For multiple-value metadata fields, the subject is included in the results\nif any of its values for the field _exactly_ match the query string (a\nlogical OR [`||`]). Matches are case-sensitive.\n* When the metadata field is `null` (in the case of singular or\nmultiple-valued metadata fields) or empty, the subject is not included.\n* When multiple fields are provided as filters, a logical AND (`&&`) strings\ntogether the predicates. In other words, all filters must match for a\nsubject to be returned. Note that this means that servers do not natively\nsupport logical OR (`||`) across multiple fields: that must be done by\ncalling this endpoint with each of your desired queries and performing a\nset union of those subjects out of band.\n\n### Ordering\n\nThis endpoint has default ordering requirementsâ€”those details are documented\nin the `responses::Subjects` schema.\n\nNote: This API is experimental and is subject to change without being considered\nas a breaking change.",
+        "operationId": "subject_diagnosis_search",
+        "parameters": [
+          {
+            "name": "search",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Matches any subject where any member of the `associated_diagnoses` field contains the string provided, ignoring case.\n\n**Note:** a logical OR (`||`) is performed across the values when determining whether the subject should be included in the results.",
+              "title": "Search"
+            },
+            "description": "Matches any subject where any member of the `associated_diagnoses` field contains the string provided, ignoring case.\n\n**Note:** a logical OR (`||`) is performed across the values when determining whether the subject should be included in the results."
+          },
+          {
+            "name": "sex",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Matches any subject where the `sex` field matches the string provided.",
+              "enum": [
+                "M",
+                "F",
+                "U"
+              ],
+              "title": "Sex"
+            },
+            "description": "Matches any subject where the `sex` field matches the string provided."
+          },
+          {
+            "name": "race",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Matches any subject where any member of the `race` field matches any of the provided values. Multiple race values can be provided separated by `||` (double pipe). The race field in the database may contain semicolon-separated values (e.g., 'Asian;White'), and the filter will match if any of the provided values is found within those values. Only `||` is accepted as a delimiter; all other characters are treated as part of a single value.",
+              "enum": [
+                "Not allowed to collect",
+                "Native Hawaiian or other Pacific Islander",
+                "Not Reported",
+                "Unknown",
+                "American Indian or Alaska Native",
+                "Asian",
+                "Black or African American",
+                "White"
+              ],
+              "title": "Race"
+            },
+            "description": "Matches any subject where any member of the `race` field matches any of the provided values. Multiple race values can be provided separated by `||` (double pipe). The race field in the database may contain semicolon-separated values (e.g., 'Asian;White'), and the filter will match if any of the provided values is found within those values. Only `||` is accepted as a delimiter; all other characters are treated as part of a single value."
+          },
+          {
+            "name": "ethnicity",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Matches any subject where the `ethnicity` field matches the string provided. Ethnicity is derived from race values: if race contains 'Hispanic or Latino', ethnicity is 'Hispanic or Latino'; otherwise 'Not reported'. Only these two values are accepted.",
+              "enum": [
+                "Hispanic or Latino",
+                "Not reported"
+              ],
+              "title": "Ethnicity"
+            },
+            "description": "Matches any subject where the `ethnicity` field matches the string provided. Ethnicity is derived from race values: if race contains 'Hispanic or Latino', ethnicity is 'Hispanic or Latino'; otherwise 'Not reported'. Only these two values are accepted."
+          },
+          {
+            "name": "identifiers",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Matches any subject where any member of the `identifiers` field matches the string provided. **Note:** a logical OR (`||`) is performed across the values when determining whether the subject should be included in the results.",
+              "title": "Identifiers"
+            },
+            "description": "Matches any subject where any member of the `identifiers` field matches the string provided. **Note:** a logical OR (`||`) is performed across the values when determining whether the subject should be included in the results."
+          },
+          {
+            "name": "vital_status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Matches any subject where the `vital_status` field matches the string provided.",
+              "enum": [
+                "Alive",
+                "Dead",
+                "Not reported",
+                "Unknown",
+                "Unspecified"
+              ],
+              "title": "Vital Status"
+            },
+            "description": "Matches any subject where the `vital_status` field matches the string provided."
+          },
+          {
+            "name": "age_at_vital_status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Matches any subject where the `age_at_vital_status` field matches the string provided.",
+              "title": "Age At Vital Status"
+            },
+            "description": "Matches any subject where the `age_at_vital_status` field matches the string provided."
+          },
+          {
+            "name": "depositions",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter by study_id. Matches any subject where the `depositions` field contains the specified study_id value (e.g., `phs002431`). Returns all participants that belong to the specified study. Example: `depositions=phs002431` will return all participants in study `phs002431`.",
+              "examples": {
+                "default": {
+                  "summary": "Example study_id",
+                  "value": "phs002431"
+                }
+              },
+              "title": "Depositions"
+            },
+            "description": "Filter by study_id. Matches any subject where the `depositions` field contains the specified study_id value (e.g., `phs002431`). Returns all participants that belong to the specified study. Example: `depositions=phs002431` will return all participants in study `phs002431`."
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The page to retrieve.\n\nThis is a 1-based index of a page within a page set. The value of page must default to 1 when this parameter is not provided.",
+              "default": 1,
+              "title": "Page"
+            },
+            "description": "The page to retrieve.\n\nThis is a 1-based index of a page within a page set. The value of page must default to 1 when this parameter is not provided."
+          },
+          {
+            "name": "per_page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "maximum": 1000,
+                  "minimum": 1
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The number of results per page.\n\nEach server can select its own default value for per_page when this parameter is not provided. \n\nThat said, the convention within the community is to use 50 as a default value if any value is equally reasonable.\n\nThe maximum allowed value is 1000.",
+              "title": "Per Page"
+            },
+            "description": "The number of results per page.\n\nEach server can select its own default value for per_page when this parameter is not provided. \n\nThat said, the convention within the community is to use 50 as a default value if any value is equally reasonable.\n\nThe maximum allowed value is 1000."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful operation.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SubjectResponse"
+                },
+                "example": {
+                  "summary": {
+                    "counts": {
+                      "all": 300,
+                      "current": 15
+                    }
+                  },
+                  "data": [
+                    {
+                      "id": {
+                        "namespace": {
+                          "organization": "CCDI-DCC",
+                          "name": "phs002430"
+                        },
+                        "name": "TARGET-10-DCC001"
+                      },
+                      "kind": "Participant",
+                      "metadata": {
+                        "sex": {
+                          "value": "F"
+                        },
+                        "race": [
+                          {
+                            "value": "White"
+                          }
+                        ],
+                        "ethnicity": {
+                          "value": "Not reported"
+                        },
+                        "identifiers": [
+                          {
+                            "value": {
+                              "namespace": {
+                                "organization": "CCDI-DCC",
+                                "name": "phs002430"
+                              },
+                              "name": "TARGET-10-DCC001",
+                              "type": "Linked",
+                              "server": "https://dcc.ccdi.cancer.gov/api/v1/subject/CCDI-DCC/phs002430/TARGET-10-DCC001"
+                            }
+                          }
+                        ],
+                        "vital_status": {
+                          "value": "Alive"
+                        },
+                        "age_at_vital_status": {
+                          "value": 12
+                        },
+                        "associated_diagnoses": [
+                          {
+                            "value": "Neuroblastoma",
+                            "comment": "null"
+                          }
+                        ],
+                        "depositions": [
+                          {
+                            "kind": "dbGaP",
+                            "value": "phs002430"
+                          }
+                        ]
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorsResponse"
+                },
+                "example": {
+                  "errors": [
+                    {
+                      "kind": "NotFound",
+                      "entity": "Subjects",
+                      "message": "Unable to find data for your request.",
+                      "reason": "No data found."
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid query or path parameters.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorsResponse"
+                },
+                "example": {
+                  "errors": [
+                    {
+                      "kind": "InvalidParameters",
+                      "parameters": [],
+                      "message": "Invalid query parameter(s) provided.",
+                      "reason": "Unknown query parameter(s)"
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/file": {
+      "get": {
+        "tags": [
+          "File"
+        ],
+        "summary": "Gets the sequencing files known by this server.",
+        "description": "Gets the sequencing files known by this server.\n\n### Pagination\n\nThis endpoint is paginated. Users may override the default pagination\nparameters by providing one or more of the pagination-related query\nparameters below.\n\n### Filtering\n\nAll harmonized (top-level) and unharmonized (nested under the\n`metadata.unharmonized` key) metadata fields are filterable. To achieve\nthis, you can provide the field name as a [`String`]. Filtering follows the\nfollowing rules:\n\n* For single-value metadata field, the sequencing file is included in the results if\nits value _exactly_ matches the query string. Matches are case-sensitive.\n* For multiple-value metadata fields, the sequencing file is included in the results\nif any of its values for the field _exactly_ match the query string (a\nlogical OR (`||`)). Matches are case-sensitive.\n* When the metadata field is `null` (in the case of singular or\nmultiple-valued metadata fields) or empty, the sequencing file is not included.\n* When multiple fields are provided as filters, a logical AND (`&&`) strings\ntogether the predicates. In other words, all filters must match for a\nsequencing file to be returned. Note that this means that servers do not natively\nsupport logical OR (`||`) across multiple fields: that must be done by\ncalling this endpoint with each of your desired queries and performing a\nset union of those files out of band.\n\n### Ordering\n\nThis endpoint has default ordering requirementsâ€”those details are documented\nin the `responses::Files` schema.",
+        "operationId": "file_index",
+        "parameters": [
+          {
+            "name": "type",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Matches any sequencing file where the `file_type` field matches the string provided.",
+              "title": "Type"
+            },
+            "description": "Matches any sequencing file where the `file_type` field matches the string provided."
+          },
+          {
+            "name": "size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Matches any sequencing file where the `file_size` field matches the string provided.",
+              "title": "Size"
+            },
+            "description": "Matches any sequencing file where the `file_size` field matches the string provided."
+          },
+          {
+            "name": "checksums",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Matches any sequencing file where the `md5sum` or `checksum_value` field matches the string provided.\n\n**Note:** a logical OR (`||`) is performed across the values when determining whether the file should be included in the results.",
+              "title": "Checksums"
+            },
+            "description": "Matches any sequencing file where the `md5sum` or `checksum_value` field matches the string provided.\n\n**Note:** a logical OR (`||`) is performed across the values when determining whether the file should be included in the results."
+          },
+          {
+            "name": "description",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Matches any sequencing file where the `file_description` field matches the string provided.\n\n**Note:** a file is returned if the value provided is a substring of the description.",
+              "title": "Description"
+            },
+            "description": "Matches any sequencing file where the `file_description` field matches the string provided.\n\n**Note:** a file is returned if the value provided is a substring of the description."
+          },
+          {
+            "name": "depositions",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Matches any sequencing file where any member of the `depositions` fields match the string provided.\n\n**Note:** a logical OR (`||`) is performed across the values when determining whether the file should be included in the results.",
+              "title": "Depositions"
+            },
+            "description": "Matches any sequencing file where any member of the `depositions` fields match the string provided.\n\n**Note:** a logical OR (`||`) is performed across the values when determining whether the file should be included in the results."
+          },
+          {
+            "name": "metadata.unharmonized.file_name",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "All unharmonized fields should be filterable in the same manner as harmonized fields:\n\n* Filtering on a singular field should include the `File` in the results if the query exactly matches the value of that field for the `File` (case-sensitive).\n* Filtering on field with multiple values should include the `File` in the results if the query exactly matches any of the values of the field for that `File` (case-sensitive).\n* Unlike harmonized fields, unharmonized fields must be prefixed with `metadata.unharmonized`.\n\n**Examples:**\n* `?metadata.unharmonized.file_name=UTYE.fastq` - Filter files by file_name\n\n",
+              "title": "Metadata.Unharmonized.File Name"
+            },
+            "description": "All unharmonized fields should be filterable in the same manner as harmonized fields:\n\n* Filtering on a singular field should include the `File` in the results if the query exactly matches the value of that field for the `File` (case-sensitive).\n* Filtering on field with multiple values should include the `File` in the results if the query exactly matches any of the values of the field for that `File` (case-sensitive).\n* Unlike harmonized fields, unharmonized fields must be prefixed with `metadata.unharmonized`.\n\n**Examples:**\n* `?metadata.unharmonized.file_name=UTYE.fastq` - Filter files by file_name\n\n"
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The page to retrieve.\n\nThis is a 1-based index of a page within a page set. The value of page must default to 1 when this parameter is not provided.",
+              "default": 1,
+              "title": "Page"
+            },
+            "description": "The page to retrieve.\n\nThis is a 1-based index of a page within a page set. The value of page must default to 1 when this parameter is not provided."
+          },
+          {
+            "name": "per_page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "maximum": 1000,
+                  "minimum": 1
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The number of results per page.\n\nEach server can select its own default value for per_page when this parameter is not provided. \n\nThat said, the convention within the community is to use 50 as a default value if any value is equally reasonable.\n\nThe maximum allowed value is 1000.",
+              "title": "Per Page"
+            },
+            "description": "The number of results per page.\n\nEach server can select its own default value for per_page when this parameter is not provided. \n\nThat said, the convention within the community is to use 50 as a default value if any value is equally reasonable.\n\nThe maximum allowed value is 1000."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful operation.",
+            "content": {
+              "application/json": {
+                "schema": {},
+                "example": {
+                  "summary": {
+                    "counts": {
+                      "all": 1000,
+                      "current": 20
+                    }
+                  },
+                  "data": [
+                    {
+                      "id": {
+                        "namespace": {
+                          "organization": "CCDI-DCC",
+                          "name": "phs002430"
+                        },
+                        "name": "2af63d08-a883-535f-906f-87d862f400d2"
+                      },
+                      "samples": [
+                        {
+                          "namespace": {
+                            "organization": "CCDI-DCC",
+                            "name": "phs002430"
+                          },
+                          "name": "sample1-WGS"
+                        }
+                      ],
+                      "metadata": {
+                        "size": {
+                          "value": 74880783442
+                        },
+                        "type": {
+                          "value": "Sequence Record Format"
+                        },
+                        "checksums": {
+                          "value": {
+                            "md5": "2f6a4ef817eb907bdbeee8c35c40ca09"
+                          }
+                        },
+                        "description": {
+                          "value": "Sequence Record"
+                        },
+                        "depositions": [
+                          {
+                            "kind": "dbGaP",
+                            "value": "phs002430"
+                          }
+                        ],
+                        "unharmonized": {
+                          "file_name": {
+                            "value": "sample1-WGS.fastq.gz"
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorsResponse"
+                },
+                "example": {
+                  "errors": [
+                    {
+                      "kind": "NotFound",
+                      "entity": "Files",
+                      "message": "Unable to find data for your request.",
+                      "reason": "No data found."
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid query or path parameters.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorsResponse"
+                },
+                "example": {
+                  "errors": [
+                    {
+                      "kind": "InvalidParameters",
+                      "parameters": [],
+                      "message": "Invalid query parameter(s) provided.",
+                      "reason": "Unknown query parameter(s)"
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/file/by/{field}/count": {
+      "get": {
+        "tags": [
+          "File"
+        ],
+        "summary": "Groups the sequencing files by the specified metadata field and returns counts.",
+        "description": "Groups the sequencing files by the specified metadata field and returns counts. Only 'type' and 'depositions' are supported.",
+        "operationId": "files_by_count",
+        "parameters": [
+          {
+            "name": "field",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "The field to group by and count. Only 'type' and 'depositions' are supported.",
+              "examples": {
+                "type": {
+                  "value": "type",
+                  "summary": "Count by file type"
+                },
+                "depositions": {
+                  "value": "depositions",
+                  "summary": "Count by depositions"
+                }
+              },
+              "enum": [
+                "type",
+                "depositions"
+              ],
+              "title": "Field"
+            },
+            "description": "The field to group by and count. Only 'type' and 'depositions' are supported."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful operation.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CountResponse"
+                },
+                "example": {
+                  "total": 1000,
+                  "missing": 50,
+                  "values": [
+                    {
+                      "value": "fastq",
+                      "count": 500
+                    },
+                    {
+                      "value": "WGS",
+                      "count": 300
+                    },
+                    {
+                      "value": "Sequence Record Format",
+                      "count": 200
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Unsupported field.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorsResponse"
+                },
+                "example": {
+                  "errors": [
+                    {
+                      "kind": "UnsupportedField",
+                      "field": "wrong field",
+                      "message": "Field is not supported for files.",
+                      "reason": "This field is not present for files."
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/file/{organization}/{namespace}/{name}": {
+      "get": {
+        "tags": [
+          "File"
+        ],
+        "summary": "Gets the sequencing file matching the provided identifier (if the file exists).",
+        "description": "Gets the sequencing file matching the provided identifier (if the file exists). Organization must be 'CCDI-DCC'. Namespace is the study_id value from the database. Name is the file id field value from the database.",
+        "operationId": "file_show",
+        "parameters": [
+          {
+            "name": "organization",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "Organization identifier",
+              "examples": {
+                "default": {
+                  "summary": "Organization",
+                  "value": "CCDI-DCC"
+                }
+              },
+              "title": "Organization"
+            },
+            "description": "Organization identifier"
+          },
+          {
+            "name": "namespace",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "Study namespace (study_id)",
+              "examples": {
+                "default": {
+                  "summary": "Study namespace (study_id)",
+                  "value": "phs002430"
+                }
+              },
+              "title": "Namespace"
+            },
+            "description": "Study namespace (study_id)"
+          },
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "File identifier (file.id)",
+              "examples": {
+                "default": {
+                  "summary": "Example file ID",
+                  "value": "b51fd7ab-e464-5012-b418-3502af28980d"
+                }
+              },
+              "title": "Name"
+            },
+            "description": "File identifier (file.id)"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful operation.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/File"
+                },
+                "example": {
+                  "id": {
+                    "namespace": {
+                      "organization": "CCDI-DCC",
+                      "name": "phs002430"
+                    },
+                    "name": "b51fd7ab-e464-5012-b418-3502af28980d"
+                  },
+                  "samples": [
+                    {
+                      "namespace": {
+                        "organization": "CCDI-DCC",
+                        "name": "phs002430"
+                      },
+                      "name": "SJSA_sample"
+                    }
+                  ],
+                  "metadata": {
+                    "depositions": [
+                      {
+                        "kind": "dbGaP",
+                        "value": "phs002430"
+                      }
+                    ],
+                    "type": {
+                      "value": "fastq"
+                    },
+                    "size": {
+                      "value": 12340
+                    },
+                    "checksums": {
+                      "value": {
+                        "md5": "608449b55fe5480b3562a967eb7dc2b0"
+                      }
+                    },
+                    "description": {
+                      "value": "WGS FASTQ Files R2"
+                    },
+                    "unharmonized": {
+                      "file_name": {
+                        "value": "UTYE.fastq"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorsResponse"
+                },
+                "example": {
+                  "errors": [
+                    {
+                      "kind": "NotFound",
+                      "entity": "Files",
+                      "message": "Unable to find data for your request.",
+                      "reason": "No data found."
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid query or path parameters.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorsResponse"
+                },
+                "example": {
+                  "errors": [
+                    {
+                      "kind": "InvalidParameters",
+                      "parameters": [],
+                      "message": "Invalid query parameter(s) provided.",
+                      "reason": "Unknown query parameter(s)"
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/file/summary": {
+      "get": {
+        "tags": [
+          "File"
+        ],
+        "summary": "Reports summary information for the sequencing files known by this server.",
+        "description": "Reports summary information for the sequencing files known by this server.",
+        "operationId": "file_summary",
+        "responses": {
+          "200": {
+            "description": "Successful operation.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SummaryResponse"
+                },
+                "example": {
+                  "counts": {
+                    "total": 123456
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/metadata/fields/subject": {
+      "get": {
+        "tags": [
+          "Metadata"
+        ],
+        "summary": "Get subject metadata fields",
+        "description": "Get metadata fields for subjects. Returns the list of metadata fields with their harmonization status, wiki URLs, and standard information.",
+        "operationId": "get_subject_metadata_fields_api_v1_metadata_fields_subject_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MetadataFieldsInfoResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/metadata/fields/sample": {
+      "get": {
+        "tags": [
+          "Metadata"
+        ],
+        "summary": "Get sample metadata fields",
+        "description": "Get metadata fields for samples. Returns the list of metadata fields with their harmonization status, wiki URLs, and standard information.",
+        "operationId": "get_sample_metadata_fields_api_v1_metadata_fields_sample_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MetadataFieldsInfoResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/metadata/fields/file": {
+      "get": {
+        "tags": [
+          "Metadata"
+        ],
+        "summary": "Get file metadata fields",
+        "description": "Get metadata fields for files. Returns the list of metadata fields with their harmonization status, wiki URLs, and standard information.",
+        "operationId": "get_file_metadata_fields_api_v1_metadata_fields_file_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MetadataFieldsInfoResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/namespace": {
+      "get": {
+        "tags": [
+          "Namespace"
+        ],
+        "summary": "List namespaces",
+        "description": "Get all available namespaces",
+        "operationId": "list_namespaces_api_v1_namespace_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/Namespace"
+                  },
+                  "type": "array",
+                  "title": "Response List Namespaces Api V1 Namespace Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/namespace/{organization}/{namespace}": {
+      "get": {
+        "tags": [
+          "Namespace"
+        ],
+        "summary": "Get namespace details",
+        "description": "Get details for a specific namespace. Returns 404 if organization or namespace doesn't match.",
+        "operationId": "get_namespace_api_v1_namespace__organization___namespace__get",
+        "parameters": [
+          {
+            "name": "organization",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Organization"
+            }
+          },
+          {
+            "name": "namespace",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Namespace"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Namespace"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid query or path parameters.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorsResponse"
+                },
+                "example": {
+                  "errors": [
+                    {
+                      "kind": "InvalidParameters",
+                      "parameters": [],
+                      "message": "Invalid query parameter(s) provided.",
+                      "reason": "Unknown query parameter(s)"
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/organization": {
+      "get": {
+        "tags": [
+          "Organization"
+        ],
+        "summary": "Get organizations",
+        "description": "Returns the list of organizations.\n\nThis endpoint serves the organizations information from the info.json file\nand adds institution data from the database.",
+        "operationId": "get_organizations_api_v1_organization_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/Organization"
+                  },
+                  "type": "array",
+                  "title": "Response Get Organizations Api V1 Organization Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/organization/{name}": {
+      "get": {
+        "tags": [
+          "Organization"
+        ],
+        "summary": "Get organization by name",
+        "description": "Returns the organization matching the provided name (if it exists).\n\nReturns 404 with error response if the organization is not found.\nThe name can match either the identifier or the name field.",
+        "operationId": "get_organization_by_name_api_v1_organization__name__get",
+        "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Name"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Organization"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid query or path parameters.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorsResponse"
+                },
+                "example": {
+                  "errors": [
+                    {
+                      "kind": "InvalidParameters",
+                      "parameters": [],
+                      "message": "Invalid query parameter(s) provided.",
+                      "reason": "Unknown query parameter(s)"
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/info": {
+      "get": {
+        "tags": [
+          "Info"
+        ],
+        "summary": "API info",
+        "description": "Returns the API information including server, API, and data details.\n\nThis endpoint serves the API information configuration file that describes\nthe server, API version, and data version information.",
+        "operationId": "api_info_api_v1_info_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "CountResponse": {
+        "properties": {
+          "total": {
+            "type": "integer",
+            "title": "Total",
+            "description": "Total counts of all unique participants",
+            "default": 0
+          },
+          "missing": {
+            "type": "integer",
+            "title": "Missing",
+            "description": "Count of unique participants with null value in the field",
+            "default": 0
+          },
+          "values": {
+            "items": {
+              "$ref": "#/components/schemas/CountResult"
+            },
+            "type": "array",
+            "title": "Values",
+            "description": "Count results for field values"
+          }
+        },
+        "type": "object",
+        "title": "CountResponse",
+        "description": "Generic count response for field counting."
+      },
+      "CountResult": {
+        "properties": {
+          "value": {
+            "type": "string",
+            "title": "Value",
+            "description": "Field value"
+          },
+          "count": {
+            "type": "integer",
+            "title": "Count",
+            "description": "Count for this value"
+          }
+        },
+        "type": "object",
+        "required": [
+          "value",
+          "count"
+        ],
+        "title": "CountResult",
+        "description": "Count result for by-field counting."
+      },
+      "DepositionAccession": {
+        "properties": {
+          "kind": {
+            "type": "string",
+            "title": "Kind",
+            "description": "Repository type"
+          },
+          "value": {
+            "type": "string",
+            "title": "Value",
+            "description": "Accession value"
+          }
+        },
+        "type": "object",
+        "required": [
+          "kind",
+          "value"
+        ],
+        "title": "DepositionAccession",
+        "description": "Deposition accession model."
+      },
+      "DiagnosisField": {
+        "properties": {
+          "value": {
+            "type": "string",
+            "title": "Value",
+            "description": "Diagnosis value"
+          },
+          "comment": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Comment",
+            "description": "Diagnosis comment"
+          }
+        },
+        "type": "object",
+        "required": [
+          "value"
+        ],
+        "title": "DiagnosisField",
+        "description": "Diagnosis field with value and comment."
+      },
+      "ErrorDetail": {
+        "properties": {
+          "kind": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Kind"
+          },
+          "message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Message"
+          },
+          "method": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Method"
+          },
+          "route": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Route"
+          },
+          "parameters": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parameters"
+          },
+          "entity": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Entity"
+          },
+          "field": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Field"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          }
+        },
+        "type": "object",
+        "title": "ErrorDetail",
+        "description": "Individual error detail model matching OpenAPI specification.\n\nFields vary by error kind:\n- InvalidRoute: kind, method, route, message\n- InvalidParameters: kind, parameters, message, reason\n- NotFound: kind, entity, message, reason\n- UnshareableData: kind, entity, message, reason\n- UnsupportedField: kind, field, message, reason"
+      },
+      "ErrorsResponse": {
+        "properties": {
+          "errors": {
+            "items": {
+              "$ref": "#/components/schemas/ErrorDetail"
+            },
+            "type": "array",
+            "title": "Errors"
+          }
+        },
+        "type": "object",
+        "required": [
+          "errors"
+        ],
+        "title": "ErrorsResponse",
+        "description": "Error response model matching OpenAPI specification."
+      },
+      "FieldDetails": {
+        "properties": {
+          "method": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Method"
+          },
+          "harmonizer": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Harmonizer"
+          },
+          "url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Url"
+          }
+        },
+        "type": "object",
+        "title": "FieldDetails",
+        "description": "Details regarding the harmonization process."
+      },
+      "File": {
+        "properties": {},
+        "additionalProperties": true,
+        "type": "object",
+        "title": "File",
+        "description": "Flexible file model that can contain any fields."
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "type": "array",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "title": "HTTPValidationError"
+      },
+      "HarmonizedStandard": {
+        "properties": {
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name",
+            "description": "Standard name"
+          },
+          "url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Url",
+            "description": "Standard URL"
+          }
+        },
+        "type": "object",
+        "title": "HarmonizedStandard",
+        "description": "Standard to which a field is harmonized."
+      },
+      "IdentifierField": {
+        "properties": {
+          "value": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/IdentifierValue"
+              }
+            ],
+            "description": "Identifier value"
+          }
+        },
+        "type": "object",
+        "required": [
+          "value"
+        ],
+        "title": "IdentifierField",
+        "description": "Identifier field with nested value."
+      },
+      "IdentifierValue": {
+        "properties": {
+          "namespace": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/app__models__dto__NamespaceIdentifier"
+              }
+            ],
+            "description": "Namespace identifier"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name",
+            "description": "Identifier name"
+          },
+          "type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Type",
+            "description": "Identifier type",
+            "default": "Linked"
+          },
+          "server": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Server",
+            "description": "Server URL"
+          }
+        },
+        "type": "object",
+        "required": [
+          "namespace",
+          "name"
+        ],
+        "title": "IdentifierValue",
+        "description": "Identifier value with nested structure."
+      },
+      "IntegerValueField": {
+        "properties": {
+          "value": {
+            "type": "integer",
+            "title": "Value",
+            "description": "Field value"
+          }
+        },
+        "type": "object",
+        "required": [
+          "value"
+        ],
+        "title": "IntegerValueField",
+        "description": "Integer field with value attribute."
+      },
+      "MetadataFieldInfo": {
+        "properties": {
+          "path": {
+            "type": "string",
+            "title": "Path",
+            "description": "Field path"
+          },
+          "harmonized": {
+            "type": "boolean",
+            "title": "Harmonized",
+            "description": "Whether the field is harmonized"
+          },
+          "wiki_url": {
+            "type": "string",
+            "title": "Wiki Url",
+            "description": "Wiki URL for field documentation"
+          },
+          "standard": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/HarmonizedStandard"
+              }
+            ],
+            "description": "Standard information"
+          }
+        },
+        "type": "object",
+        "required": [
+          "path",
+          "harmonized",
+          "wiki_url",
+          "standard"
+        ],
+        "title": "MetadataFieldInfo",
+        "description": "Metadata field information for /metadata/fields endpoint."
+      },
+      "MetadataFieldsInfoResponse": {
+        "properties": {
+          "fields": {
+            "items": {
+              "$ref": "#/components/schemas/MetadataFieldInfo"
+            },
+            "type": "array",
+            "title": "Fields",
+            "description": "List of metadata fields"
+          }
+        },
+        "type": "object",
+        "required": [
+          "fields"
+        ],
+        "title": "MetadataFieldsInfoResponse",
+        "description": "Response for /metadata/fields/{field_type} endpoint."
+      },
+      "Namespace": {
+        "properties": {
+          "id": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/app__models__dto__NamespaceIdentifier__2"
+              }
+            ],
+            "description": "Namespace identifier"
+          },
+          "description": {
+            "type": "string",
+            "title": "Description",
+            "description": "Namespace description"
+          },
+          "contact_email": {
+            "type": "string",
+            "title": "Contact Email",
+            "description": "Support email address"
+          },
+          "metadata": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/NamespaceMetadata"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "description",
+          "contact_email"
+        ],
+        "title": "Namespace",
+        "description": "Namespace model."
+      },
+      "NamespaceMetadata": {
+        "properties": {
+          "depositions": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/DepositionAccession"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Depositions",
+            "description": "Public repository depositions"
+          },
+          "study_short_title": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Study Short Title"
+          },
+          "study_name": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Study Name"
+          },
+          "study_funding_id": {
+            "anyOf": [
+              {
+                "items": {
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Study Funding Id"
+          },
+          "study_id": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Study Id"
+          }
+        },
+        "type": "object",
+        "title": "NamespaceMetadata",
+        "description": "Namespace metadata model."
+      },
+      "Organization": {
+        "properties": {
+          "identifier": {
+            "type": "string",
+            "title": "Identifier",
+            "description": "Organization identifier"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name",
+            "description": "Organization name"
+          },
+          "metadata": {
+            "anyOf": [
+              {
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Metadata"
+          }
+        },
+        "type": "object",
+        "required": [
+          "identifier",
+          "name"
+        ],
+        "title": "Organization",
+        "description": "Organization model."
+      },
+      "Sample": {
+        "properties": {
+          "id": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/SampleIdentifier"
+              }
+            ],
+            "description": "Sample identifier"
+          },
+          "subject": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SubjectId"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Subject reference"
+          },
+          "metadata": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/SampleMetadata"
+              }
+            ],
+            "description": "Sample metadata"
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "required": [
+          "id",
+          "metadata"
+        ],
+        "title": "Sample",
+        "description": "Sample model with proper structure."
+      },
+      "SampleIdentifier": {
+        "properties": {
+          "namespace": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/app__models__dto__NamespaceIdentifier"
+              }
+            ],
+            "description": "Namespace identifier"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name",
+            "description": "Sample name",
+            "examples": [
+              "SampleName001"
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "namespace",
+          "name"
+        ],
+        "title": "SampleIdentifier",
+        "description": "Sample identifier model."
+      },
+      "SampleMetadata": {
+        "properties": {
+          "depositions": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/DepositionAccession"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Depositions"
+          },
+          "disease_phase": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ValueField"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "anatomical_sites": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/ValueField"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Anatomical Sites"
+          },
+          "library_selection_method": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ValueField"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "library_strategy": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ValueField"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "library_source_material": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ValueField"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "preservation_method": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ValueField"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "tumor_grade": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ValueField"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "specimen_molecular_analyte_type": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ValueField"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "tissue_type": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ValueField"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "tumor_classification": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ValueField"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "age_at_diagnosis": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/IntegerValueField"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "age_at_collection": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/IntegerValueField"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "tumor_tissue_morphology": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ValueField"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "diagnosis": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DiagnosisField"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "identifiers": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/IdentifierField"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Identifiers"
+          }
+        },
+        "type": "object",
+        "title": "SampleMetadata",
+        "description": "Sample metadata model."
+      },
+      "SamplesResponse": {
+        "properties": {
+          "summary": {
+            "anyOf": [
+              {
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Summary",
+            "description": "Summary information with counts"
+          },
+          "data": {
+            "items": {
+              "$ref": "#/components/schemas/Sample"
+            },
+            "type": "array",
+            "title": "Data",
+            "description": "List of samples with flexible structure"
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "required": [
+          "data"
+        ],
+        "title": "SamplesResponse",
+        "description": "Flexible samples list response that can accommodate any sample structure."
+      },
+      "SubjectId": {
+        "properties": {
+          "namespace": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/app__models__dto__NamespaceIdentifier__2"
+              }
+            ],
+            "description": "Namespace identifier"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name",
+            "description": "Subject name (participant ID)"
+          }
+        },
+        "type": "object",
+        "required": [
+          "namespace",
+          "name"
+        ],
+        "title": "SubjectId",
+        "description": "Subject identifier with nested namespace."
+      },
+      "SubjectResponse": {
+        "properties": {
+          "summary": {
+            "anyOf": [
+              {
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Summary",
+            "description": "Summary statistics"
+          },
+          "data": {
+            "items": {},
+            "type": "array",
+            "title": "Data",
+            "description": "List of subjects with nested structure"
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "required": [
+          "data"
+        ],
+        "title": "SubjectResponse",
+        "description": "Subject response with nested structure matching CCDI-DCC format."
+      },
+      "SummaryCounts": {
+        "properties": {
+          "total": {
+            "type": "integer",
+            "title": "Total",
+            "description": "Total entity count"
+          }
+        },
+        "type": "object",
+        "required": [
+          "total"
+        ],
+        "title": "SummaryCounts",
+        "description": "Summary counts structure."
+      },
+      "SummaryResponse": {
+        "properties": {
+          "counts": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/SummaryCounts"
+              }
+            ],
+            "description": "Summary counts"
+          }
+        },
+        "type": "object",
+        "required": [
+          "counts"
+        ],
+        "title": "SummaryResponse",
+        "description": "Generic summary response model."
+      },
+      "UnharmonizedField": {
+        "properties": {
+          "value": {
+            "title": "Value",
+            "description": "Field value"
+          },
+          "details": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FieldDetails"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "comment": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Comment"
+          }
+        },
+        "type": "object",
+        "required": [
+          "value"
+        ],
+        "title": "UnharmonizedField",
+        "description": "Unharmonized metadata field."
+      },
+      "ValidationError": {
+        "properties": {
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Location"
+          },
+          "msg": {
+            "type": "string",
+            "title": "Message"
+          },
+          "type": {
+            "type": "string",
+            "title": "Error Type"
+          }
+        },
+        "type": "object",
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError"
+      },
+      "ValueField": {
+        "properties": {
+          "value": {
+            "type": "string",
+            "title": "Value",
+            "description": "Field value"
+          }
+        },
+        "type": "object",
+        "required": [
+          "value"
+        ],
+        "title": "ValueField",
+        "description": "Simple field with value attribute."
+      },
+      "app__models__dto__NamespaceIdentifier": {
+        "properties": {
+          "organization": {
+            "type": "string",
+            "title": "Organization",
+            "description": "Organization identifier"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name",
+            "description": "Name"
+          }
+        },
+        "type": "object",
+        "required": [
+          "organization",
+          "name"
+        ],
+        "title": "NamespaceIdentifier",
+        "description": "Namespace identifier model."
+      },
+      "app__models__dto__NamespaceIdentifier__2": {
+        "properties": {
+          "organization": {
+            "type": "string",
+            "title": "Organization",
+            "description": "Organization identifier",
+            "default": "CCDI-DCC"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name",
+            "description": "Namespace name (study ID)"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "title": "NamespaceIdentifier",
+        "description": "Namespace identifier for nested structure."
+      }
+    }
+  },
+  "tags": [
+    {
+      "name": "Subject",
+      "description": "Subjects within the CCDI-DCC ecosystem."
+    },
+    {
+      "name": "Sample",
+      "description": "Samples within the CCDI-DCC ecosystem."
+    },
+    {
+      "name": "File",
+      "description": "Files within the CCDI-DCC ecosystem.-- (sequencing files only this release)"
+    },
+    {
+      "name": "Metadata",
+      "description": "List and describe provided metadata fields."
+    },
+    {
+      "name": "Namespace",
+      "description": "List and describe namespaces known by this server."
+    },
+    {
+      "name": "Organization",
+      "description": "List and describe organizations known by this server."
+    },
+    {
+      "name": "Info",
+      "description": "Information about the API implementation itself."
+    }
+  ]
+}

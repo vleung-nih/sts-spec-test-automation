@@ -9,12 +9,24 @@ import os
 from pathlib import Path
 
 DEFAULT_STS_BASE_URL = "https://sts-qa.cancer.gov/v2"
+DEFAULT_DCC_BASE_URL = "https://dcc.ccdi.cancer.gov/api/v1"
 DEFAULT_CADSR_BASE_URL = "https://cadsrapi.cancer.gov/rad/NCIAPI/1.0/api"
 
 
 def sts_base_url() -> str:
     """STS API root including ``/v2`` (``STS_BASE_URL`` or :data:`DEFAULT_STS_BASE_URL`)."""
     return os.getenv("STS_BASE_URL", DEFAULT_STS_BASE_URL)
+
+
+def dcc_base_url() -> str:
+    """
+    CCDI Federation (DCC) API root including ``/api/v1``.
+
+    Spec paths are ``/api/v1/...``; the client ``base_url`` should match this root so
+    requests use paths like ``/subject`` after stripping the prefix in the generator
+    (see :data:`DEFAULT_DCC_BASE_URL`).
+    """
+    return os.getenv("DCC_BASE_URL", DEFAULT_DCC_BASE_URL).rstrip("/")
 
 
 def sts_legacy_origin() -> str:
@@ -50,3 +62,8 @@ def project_root() -> Path:
 def bundled_spec_path() -> Path:
     """Path to ``spec/v2.json`` at the project root (sibling of ``src/``)."""
     return project_root() / "spec" / "v2.json"
+
+
+def bundled_dcc_spec_path() -> Path:
+    """Path to ``spec/dcc/openapi.json`` (CCDI Federation OpenAPI 3.1)."""
+    return project_root() / "spec" / "dcc" / "openapi.json"
