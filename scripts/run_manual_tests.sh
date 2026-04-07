@@ -20,11 +20,15 @@ cd "$REPO_ROOT"
 
 parser_agent_print_preamble "run_manual_tests.sh" "after pytest"
 
-mkdir -p logs
-LOGFILE="logs/manual_$(date +%Y-%m-%dT%H-%M-%S).log"
+TS="$(date +%Y-%m-%dT%H-%M-%S)"
+mkdir -p logs reports
+LOGFILE="logs/manual_${TS}.log"
+HTML_REPORT="reports/manual_tests_${TS}.html"
+
+echo "pytest-html report: $HTML_REPORT"
 
 pytest tests/test_manual/ -v \
-  --html=reports/manual_tests.html \
+  --html="$HTML_REPORT" \
   --self-contained-html \
   "$@" 2>&1 | tee "$LOGFILE"
 rc=${PIPESTATUS[0]}
