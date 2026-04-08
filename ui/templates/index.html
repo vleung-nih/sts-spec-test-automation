@@ -475,6 +475,7 @@
 
   // ---- Elapsed timer ----
   function startElapsedTimer() {
+    stopElapsedTimer();
     startedAt = Date.now();
     elapsedBadge.style.display = 'inline';
     elapsedTimer = setInterval(() => {
@@ -520,6 +521,7 @@
   }
 
   function setDone(exitCode, suite) {
+    currentRunId = null;
     const passed = exitCode === 0;
     statusDot.className = passed ? 'status-dot passed' : 'status-dot failed';
     statusText.textContent = passed ? 'Passed' : 'Failed';
@@ -532,9 +534,16 @@
     progressFill.style.width = '';
     if (suite !== 'full') stageLabel.textContent = '';
     stopElapsedTimer();
+    if (startedAt != null) {
+      const s = Math.floor((Date.now() - startedAt) / 1000);
+      const m = Math.floor(s / 60);
+      const sec = String(s % 60).padStart(2, '0');
+      elapsedBadge.textContent = `${m}:${sec}`;
+    }
   }
 
   function setIdle() {
+    currentRunId = null;
     statusDot.className  = 'status-dot';
     statusText.textContent = 'Idle';
     statusDetail.textContent = '';
@@ -546,6 +555,8 @@
     progressFill.style.width = '0%';
     stageLabel.textContent = '';
     elapsedBadge.style.display = 'none';
+    elapsedBadge.textContent = '';
+    startedAt = null;
     stopElapsedTimer();
   }
 
@@ -617,6 +628,8 @@
     lineTotal = 0;
     lineCount.textContent = '';
     autoScroll = true;
+    // When not running, also reset status bar / timer so Clear matches a full reset.
+    if (btnStop.disabled) setIdle();
   }
 
   // ---- Event listeners ----
