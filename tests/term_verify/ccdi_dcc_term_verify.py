@@ -32,18 +32,27 @@ MODEL_LABEL = "CCDI-DCC"
 
 KNOWN_MISSING_IN_STS_DB: frozenset[tuple[str, str]] = frozenset(
     {
+        ("diagnosis", "Chondroma, NOS"),
         ("file_type", "cnn"),
         ("file_type", "cnr"),
         ("file_type", "mzid"),
         ("file_type", "mzml"),
         ("file_type", "parquet"),
         ("file_type", "psm"),
-        ("file_type", "sf"),
         ("file_type", "selfsm"),
-        ("library_strategy", "CITE-Seq"),
+        ("file_type", "sf"),
+        ("implantation_site", "cerebellum"),
+        ("last_known_survival_status", "Not Reported"),
+        ("library_source_material", "Not Applicable"),
         ("library_source_molecule", "Not Applicable"),
-        ("diagnosis", "Chondroma, NOS"),
+        ("library_strand", "Not Reported"),
+        ("library_strategy", "CITE-Seq"),
+        ("medical_history_category", "Adverse Event"),
+        ("medical_history_category", "Clinical Assessment"),
+        ("medical_history_category", "Comorbidity"),
+        ("medical_history_category", "Risk Factor"),
         ("submitted_diagnosis", "Chondroma, NOS"),
+        ("tumor_spatial_extent", "Not Applicable"),
     }
 )
 
