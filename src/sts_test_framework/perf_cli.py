@@ -51,7 +51,7 @@ def main() -> None:
                         help="Output directory for reports (default: reports/perf/<model>/)")
 
     # -- perf config --
-    parser.add_argument("--concurrency", type=int, default=3,
+    parser.add_argument("--concurrency", type=int, default=5,
                         help="Number of concurrent request threads.")
     parser.add_argument("--iterations", type=int, default=5,
                         help="How many times to repeat each test case.")

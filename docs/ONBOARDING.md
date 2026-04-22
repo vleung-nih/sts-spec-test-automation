@@ -994,11 +994,11 @@ python3 parser_agent/main.py logs/manual_2026-03-25T00-00-00.log
 
 ### 7.5 Performance testing (concurrent GETs)
 
-This path measures **latency and throughput** for live STS, separate from the functional pass/fail CLI. It reuses **OpenAPI → discovery → `generate_cases`**, but only **positive** GET cases (no negative tests). Cases run through a **thread pool**: at most `--concurrency` requests are in flight at once (default 3). Each case is repeated `--iterations` times (see defaults in `[perf_cli.py](../src/sts_test_framework/perf_cli.py)`) so per-endpoint min/avg/percentiles reflect multiple samples.
+This path measures **latency and throughput** for live STS, separate from the functional pass/fail CLI. It reuses **OpenAPI → discovery → `generate_cases`**, but only **positive** GET cases (no negative tests). Cases run through a **thread pool**: at most `--concurrency` requests are in flight at once (default 5). Each case is repeated `--iterations` times (see defaults in `[perf_cli.py](../src/sts_test_framework/perf_cli.py)`) so per-endpoint min/avg/percentiles reflect multiple samples.
 
 **How to run:** **Web UI** → suite **Performance Tests** (`bash` required on Windows, same as other shell suites). 
 
-**CLI bundle:** `[scripts/run_perf_tests.sh](../scripts/run_perf_tests.sh)` loops models (`STS_MODELS` or script default) and calls `python -m sts_test_framework.perf_cli --model … --release`, forwarding extra args. 
+**CLI bundle:** `[scripts/run_perf_tests.sh](../scripts/run_perf_tests.sh)` loops models (`STS_MODELS` or script default) and calls `python -m sts_test_framework.perf_cli --model … --release`, forwarding extra args. When `STS_MODELS` is unset, the script defaults to **CDS, CCDI, CCDI-DCC, C3DC, CTDC, and ICDC** (one perf run per model, sequential). 
 
 **Single model:** `python -m sts_test_framework.perf_cli --model CDS --release` from the project root (editable install or `PYTHONPATH=src`). 
 

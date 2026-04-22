@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Run performance tests for selected data models (one run per model, sequential).
-# Default models: CDS. Override with STS_MODELS=comma,separated,handles.
+# Default models: CDS, CCDI, CCDI-DCC, C3DC, CTDC, ICDC. Override with
+# STS_MODELS=comma,separated,handles.
 #
 # Reuses STS_BASE_URL and STS_MODELS from the rest of the framework. Extra
 # arguments are forwarded to perf_cli (--concurrency, --iterations, etc.;
@@ -18,7 +19,7 @@ cd "$REPO_ROOT"
 
 export PYTHONPATH="${REPO_ROOT}/src${PYTHONPATH:+:$PYTHONPATH}"
 
-DEFAULT_MODELS="CDS"
+DEFAULT_MODELS="CDS CCDI CCDI-DCC C3DC CTDC ICDC"
 
 if [ -n "${STS_MODELS:-}" ]; then
     IFS=',' read -ra MODEL_LIST <<< "$STS_MODELS"
