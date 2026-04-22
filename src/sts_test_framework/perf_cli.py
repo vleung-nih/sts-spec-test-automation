@@ -32,7 +32,11 @@ def main() -> None:
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
     # -- target --
-    parser.add_argument("--spec", default=None, help="Path to OpenAPI spec (v2.json)")
+    parser.add_argument(
+        "--spec",
+        default=None,
+        help="Path to OpenAPI spec (default: bundled spec/v2-4-0.json)",
+    )
     parser.add_argument(
         "--base-url", default=None,
         help=f"STS base URL including /v2 (default: STS_BASE_URL or {DEFAULT_STS_BASE_URL})",
