@@ -32,18 +32,27 @@ MODEL_LABEL = "CCDI-DCC"
 
 KNOWN_MISSING_IN_STS_DB: frozenset[tuple[str, str]] = frozenset(
     {
+        ("diagnosis", "Chondroma, NOS"),
         ("file_type", "cnn"),
         ("file_type", "cnr"),
         ("file_type", "mzid"),
         ("file_type", "mzml"),
         ("file_type", "parquet"),
         ("file_type", "psm"),
-        ("file_type", "sf"),
         ("file_type", "selfsm"),
-        ("library_strategy", "CITE-Seq"),
+        ("file_type", "sf"),
+        ("implantation_site", "cerebellum"),
+        ("last_known_survival_status", "Not Reported"),
+        ("library_source_material", "Not Applicable"),
         ("library_source_molecule", "Not Applicable"),
-        ("diagnosis", "Chondroma, NOS"),
+        ("library_strand", "Not Reported"),
+        ("library_strategy", "CITE-Seq"),
+        ("medical_history_category", "Adverse Event"),
+        ("medical_history_category", "Clinical Assessment"),
+        ("medical_history_category", "Comorbidity"),
+        ("medical_history_category", "Risk Factor"),
         ("submitted_diagnosis", "Chondroma, NOS"),
+        ("tumor_spatial_extent", "Not Applicable"),
     }
 )
 
@@ -123,7 +132,7 @@ def _fetch_enum_values_from_url(url: str, cache: dict[str, list[str]]) -> list[s
 class CCDIDCCTermVerify(TermVerifyPipeline):
     model_handle = "CCDI-DCC"
     csv_prefix = "ccdi_dcc"
-    default_yaml_filename = "ccdi-dcc-model-props-3.yml"
+    default_yaml_filename = "ccdi-dcc-model-props-4.yml"
     report_subdir = "CCDI-DCC"
 
     def parse_yaml(self, path: Path) -> list[tuple[str, str, list[str]]]:
@@ -296,6 +305,37 @@ class CCDIDCCTermVerify(TermVerifyPipeline):
                         f"\n... and {len(failed) - 50} more. See `{report_csv.name}` for full list.\n"
                     )
             f.write(f"\n**Full results:** `{report_csv.name}`\n")
+
+    def _print_verify_stdout_summary(
+        self,
+        passed_count: int,
+        total_rows: int,
+        failed: list[dict],
+        report_csv: Path,
+        report_md: Path,
+    ) -> None:
+        failed_count = len(failed)
+        u = getattr(self, "_unexpected_failure_count", failed_count)
+        allowlisted_count = failed_count - u
+        print(
+            f"Verify: passed {passed_count}/{total_rows}, failed {failed_count} "
+            f"\u2192 {report_csv.name}, {report_md.name}"
+        )
+        if not failed_count:
+            return
+        print(
+            f"Verify: failed breakdown \u2014 {allowlisted_count} allowlisted "
+            f"(known missing in STS), {u} unexpected (see {report_csv.name})."
+        )
+        if u > 0:
+            print(
+                f"Verify: FAIL — {u} unexpected term verification failure(s) "
+                f"(process exits 1 unless --warn-only)."
+            )
+        else:
+            print(
+                "Verify: OK \u2014 0 unexpected failures (all failed rows are allowlisted; exit 0)."
+            )
 
     def _should_fail(self, passed: int, total: int, warn_only: bool) -> bool:
         if warn_only:
