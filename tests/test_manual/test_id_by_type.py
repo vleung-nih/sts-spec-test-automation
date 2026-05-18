@@ -22,7 +22,7 @@ WHERE THE DATA COMES FROM
 
 - **Endpoint:** ``GET /id/{nanoid}`` — no query parameters.
 
-**Covered types:** Model, Node, Property, Term, Tag, Concept, Relationship, ValueSet (see list in
+**Covered types:** Model, Node, Property, Term, Tag, Concept, Relationship, ValueSet, Origin (see list in
 ``ID_BY_TYPE``).
 
 ================================================================================
@@ -56,7 +56,7 @@ ID_BY_TYPE = [
     ("Concept", "hXZyty"),
     ("Relationship", "ueqz5Y"),
     ("ValueSet", "QGBE31"),
-    #("Origin", "oHBbMJ"), # Origin test is turned off for now because of bug DATATEAM-430 -- uncomment when fixed
+    ("Origin", "oHBbMJ"),
 ]
 
 
