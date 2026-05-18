@@ -2,15 +2,16 @@
 Manual caDSR vs STS tests (two families in this module).
 
 ================================================================================
-1) ``cadsr_alt_pvs`` — Designations vs **cde-pvs** and **model-pvs**
+1) ``cadsr_alt_pvs`` — Alternate **Designations** must **not** appear in **cde-pvs** / **model-pvs**
 ================================================================================
 
 For pinned CDE + model + property rows (see ``data/cadsr_alternate_values_cases.json``), we:
 
-1. Load **caDSR** ``GET .../DataElement/{cde_id}`` and collect every ``Designations[].name``
-   (all designation **types** — e.g. ``MCL Alt Name`` is one example) under ``PermissibleValues``
-   / ``ValueMeaning``, same traversal as ``mdb/cadsr_verification/verify_cadsr_sync.py`` extended
-   for the JSON API shape.
+1. Load **caDSR** ``GET .../DataElement/{cde_id}`` and collect ``Designations[].name`` (all types
+   by default — same idea as the pre-change test). Optionally limit which ``Designations[].type``
+   rows are included via ``CADSR_ALTERNATE_DESIGNATION_TYPES`` (comma-separated; unset or ``*`` =
+   all types). Then **subtract** every official ``PermissibleValues[].value`` string so names that
+   match a canonical PV are not treated as “extra” alternates.
 2. Load STS **cde-pvs**, ``GET /terms/cde-pvs/{cde_id}/{cde_version}/pvs``.
 3. Load STS **model-pvs**, ``GET /terms/model-pvs/{model}/{property}`` with
    ``version={model_version}``.
@@ -18,10 +19,17 @@ For pinned CDE + model + property rows (see ``data/cadsr_alternate_values_cases.
 For **each** endpoint’s ``permissibleValues`` list we assert:
 
 - No duplicate ``value`` strings (case-sensitive).
-- Every **unique** caDSR designation ``name`` appears as some row’s ``value`` (exact match).
+- Every caDSR ``PermissibleValues[].value`` (multiset) appears as some row’s ``value`` on STS
+  (**all** rows — includes null ``ncit_concept_code`` enumerations, unlike ``cadsr_draft_new``).
+- **Jira / DH behavior:** caDSR ``Designations[].name`` strings that are **not** themselves an
+  official ``PermissibleValues[].value`` must **not** appear as a top-level ``permissibleValues.value``
+  (those used to be extra null-NCIt rows; they are removed from API responses). Names are taken
+  only from the caDSR designation tree (optional ``CADSR_ALTERNATE_DESIGNATION_TYPES`` limits
+  which ``Designations[].type`` rows are included before subtracting official values).
 
-If caDSR returns no Designations for a CDE, designation checks are skipped; duplicate-value
-checks still run.
+We **do not** assert on ``synonyms``: STS merges NCIt synonym strings with caDSR text; the same
+designation string can legitimately appear under ``synonyms`` while still being forbidden as its
+own PV ``value`` row after the change.
 
 ::
 
@@ -61,9 +69,9 @@ ENVIRONMENT (both families)
 - ``STS_BASE_URL`` — v2 STS root (default QA).
 - ``CADSR_BASE_URL`` — caDSR API root (default ``https://cadsrapi.cancer.gov/rad/NCIAPI/1.0/api``).
    Paths used: ``/DataElement/{cde_id}``.
-- ``CADSR_DESIGNATION_TYPES`` — (**designation tests only**) optional comma-separated
-  ``Designations[].type`` values to **limit** which names are required in STS (default: **unset**
-  = require **all** designation names).
+- ``CADSR_ALTERNATE_DESIGNATION_TYPES`` — (**``cadsr_alt_pvs`` only**) optional comma-separated
+  ``Designations[].type`` filter before subtracting official PV values; unset or ``*`` = include
+  **all** designation types (default).
 - ``STS_SSL_VERIFY`` — applies to both STS and caDSR clients (same ``APIClient`` behavior).
 
 Console output uses ``print`` (visible with pytest ``-s``; this project sets ``addopts = -v -s``).
@@ -237,17 +245,17 @@ def _format_cde_pvs_response_hint(body: Any, max_len: int = 800) -> str:
     return f"body[0] keys={keys!r}; preview={raw}"
 
 
-def _allowed_designation_types() -> FrozenSet[str] | None:
+def _optional_alternate_designation_types() -> FrozenSet[str] | None:
     """
-    ``None`` = include **all** ``Designations[].name`` values (default).
+    Optional comma-separated ``Designations[].type`` filter for ``cadsr_alt_pvs``.
 
-    If ``CADSR_DESIGNATION_TYPES`` is set to a non-empty comma-separated list, only designation
-    rows whose ``type`` is in that set are required to appear in STS.
+    ``None`` = include names from **all** designation types (unset, empty, or ``*``).
     """
-    raw = os.getenv("CADSR_DESIGNATION_TYPES", "").strip()
+    raw = os.getenv("CADSR_ALTERNATE_DESIGNATION_TYPES", "").strip()
     if not raw or raw == "*":
         return None
-    return frozenset(x.strip() for x in raw.split(",") if x.strip())
+    types = frozenset(x.strip() for x in raw.split(",") if x.strip())
+    return types if types else None
 
 
 def _designation_names_from_pv(
@@ -380,7 +388,7 @@ def _pv_values_list_ncit_rows_only(pvs: list[dict[str, Any]]) -> list[str]:
     ``value`` from ``permissibleValues`` rows whose ``ncit_concept_code`` is set.
 
     Rows with null/empty ``ncit_concept_code`` are excluded so alternate/legacy value strings
-    do not affect the DRAFT NEW subset check (see ``cadsr_alt_pvs`` for Designations).
+    do not affect the DRAFT NEW / official-PV subset checks.
     """
     out: list[str] = []
     for pv in pvs:
@@ -392,6 +400,30 @@ def _pv_values_list_ncit_rows_only(pvs: list[dict[str, Any]]) -> list[str]:
         if v is not None:
             out.append(str(v))
     return out
+
+
+def _assert_cadsr_subset_sts_all_pv_values(
+    c_c: Counter,
+    s_all: Counter,
+    case_label: str,
+    sts_endpoint_label: str = "cde-pvs",
+) -> None:
+    """
+    Multiset subset: every caDSR ``PermissibleValues[].value`` must appear on STS as some row’s
+    ``value`` (all rows, including null ``ncit_concept_code``).
+    """
+    if c_c <= s_all:
+        return
+    deficit = c_c - s_all
+    print(
+        f"  PV subset fail ({case_label}, {sts_endpoint_label}): caDSR values not matched on "
+        f"STS permissibleValues rows — missing (with counts): {dict(deficit)!r}"
+    )
+    print(f"  STS {sts_endpoint_label} (all `value` rows) Counter={dict(s_all)!r}")
+    assert False, (
+        f"{case_label}: each caDSR PermissibleValues.value must appear on STS {sts_endpoint_label} "
+        f"as some permissibleValues.value; missing multiset: {dict(deficit)!r}"
+    )
 
 
 def _assert_cadsr_subset_sts_ncit(
@@ -444,7 +476,7 @@ def _draft_new_log_sts_pv_rows_and_ncit_counter(
         f"Counter={dict(Counter(sts_pv_vals_all))}"
     )
     print(
-        f"  STS [{sts_endpoint_label}] `value` multiset (NCIt rows only, subset check): "
+        f"  STS [{sts_endpoint_label}] `value` multiset (NCIt-coded rows only): "
         f"count={len(sts_pv_vals_ncit)} Counter={dict(Counter(sts_pv_vals_ncit))}"
     )
     return n_ncit_rows, Counter(sts_pv_vals_ncit)
@@ -459,27 +491,31 @@ def _assert_no_duplicate_values(pvs: list[dict[str, Any]], endpoint_label: str) 
     )
 
 
-def _assert_designations_present(
-    unique_names: set[str],
-    pv_values: set[str],
+def _assert_alternate_designations_absent_as_pv_values(
+    forbidden_names: set[str],
+    sts_values: set[str],
     endpoint_label: str,
 ) -> None:
-    missing = unique_names - pv_values
-    if missing:
-        missing_sorted = sorted(missing)
+    """
+    caDSR-only designation strings (not an official ``PermissibleValues[].value``) must not
+    appear as their own ``permissibleValues.value`` row (post-Jira: no duplicate null-NCIt clutter).
+    """
+    if not forbidden_names:
+        return
+    bad_v = forbidden_names & sts_values
+    if bad_v:
         print(
-            f"  {endpoint_label}: MISSING {len(missing)} designation name(s) "
-            f"(not exact PV value): {missing_sorted!r}"
+            f"  {endpoint_label}: designation-derived name(s) must not appear as PV value: "
+            f"{sorted(bad_v)!r}"
         )
         logger.warning(
-            "%s: missing %s designation name(s) as PV value: %r",
+            "%s: designation strings leaked as permissibleValues.value: %r",
             endpoint_label,
-            len(missing),
-            missing_sorted,
+            sorted(bad_v),
         )
-    assert not missing, (
-        f"{endpoint_label}: caDSR designation name(s) not found as PV value: "
-        f"{sorted(missing)!r}"
+    assert not bad_v, (
+        f"{endpoint_label}: caDSR designation name(s) (non-official PV strings) must not appear "
+        f"as permissibleValues.value: {sorted(bad_v)!r}"
     )
 
 
@@ -499,11 +535,12 @@ def _draft_case_id(case: dict[str, Any]) -> str:
 
 @pytest.mark.cadsr_alt_pvs
 @pytest.mark.parametrize("case", _load_cases(), ids=_case_id)
-def test_cadsr_designations_match_cde_pvs_and_model_pvs(
+def test_cadsr_alternate_designations_absent_from_sts_pvs(
     api_client: APIClient,
     cadsr_api_client: APIClient,
     case: dict[str, Any],
 ):
+    designation_type_filter = _optional_alternate_designation_types()
     cde_id = str(case["cde_id"])
     cde_version = str(case["cde_version"])
     model = str(case["model"])
@@ -511,11 +548,18 @@ def test_cadsr_designations_match_cde_pvs_and_model_pvs(
     prop = str(case["property"])
     case_label = _case_id(case)
 
-    print(f"\n--- caDSR Designations vs STS PVS: {case_label} ---")
+    print(f"\n--- caDSR alternate Designations absent from STS PVS: {case_label} ---")
     print(
         f"  Pinned case: CDE {cde_id} @ {cde_version} | "
         f"model {model} @ {model_version} | property {prop!r}"
     )
+    if designation_type_filter is None:
+        print("  Designation type filter: all types (CADSR_ALTERNATE_DESIGNATION_TYPES unset or *)")
+    else:
+        print(
+            f"  Designation type filter (CADSR_ALTERNATE_DESIGNATION_TYPES): "
+            f"{sorted(designation_type_filter)!r}"
+        )
     if case.get("description"):
         print(f"  Note: {case['description']}")
 
@@ -535,13 +579,11 @@ def test_cadsr_designations_match_cde_pvs_and_model_pvs(
         "HTML responses are not supported for Designations extraction."
     )
 
-    allowed = _allowed_designation_types()
-    if allowed is None:
-        filter_msg = "all Designations[].name values (every type)"
-        print(f"  Designation filter: {filter_msg}")
-    else:
-        filter_msg = f"only types in {sorted(allowed)!r}"
-        print(f"  Designation filter: {filter_msg} (CADSR_DESIGNATION_TYPES)")
+    de_item = _data_element_dict(cadsr_json)
+    assert de_item is not None, (
+        f"caDSR {cadsr_url}: expected DataElement object or one-element list"
+    )
+    c_c = Counter(_cadsr_pv_value_strings(de_item))
 
     all_pairs = _designation_name_type_pairs_unfiltered(cadsr_json)
     type_hist = Counter(t for _, t in all_pairs)
@@ -550,23 +592,28 @@ def test_cadsr_designations_match_cde_pvs_and_model_pvs(
         f"by type: {dict(type_hist)}"
     )
 
-    designation_names = _extract_cadsr_designation_names(cadsr_json, allowed)
-    unique_designations = set(designation_names)
-    print(
-        f"  After filter: {len(designation_names)} name occurrence(s), "
-        f"{len(unique_designations)} unique string(s) must appear as STS PV value"
+    designation_names = _extract_cadsr_designation_names(
+        cadsr_json, designation_type_filter
     )
-    if unique_designations:
-        preview = sorted(unique_designations)[:_DESIGNATION_PREVIEW]
-        more = len(unique_designations) - len(preview)
+    official_value_strings = set(_cadsr_pv_value_strings(de_item))
+    forbidden_names = set(designation_names) - official_value_strings
+    print(
+        f"  Designation names (after type filter): {len(designation_names)} occurrence(s), "
+        f"{len(set(designation_names))} unique; official PV value strings: "
+        f"{len(official_value_strings)}; non-official (must not appear in STS): "
+        f"{len(forbidden_names)}"
+    )
+    if forbidden_names:
+        preview = sorted(forbidden_names)[:_DESIGNATION_PREVIEW]
+        more = len(forbidden_names) - len(preview)
         extra = f" … (+{more} more)" if more > 0 else ""
-        print(f"  Unique designation names (sample): {preview!r}{extra}")
+        print(f"  Non-official designation names (sample): {preview!r}{extra}")
     logger.info(
-        "Case %s: filter=%s caDSR designation occurrences=%s unique=%s",
+        "Case %s: designation_type_filter=%s occurrences=%s forbidden_unique=%s",
         case_label,
-        filter_msg,
+        None if designation_type_filter is None else sorted(designation_type_filter),
         len(designation_names),
-        len(unique_designations),
+        len(forbidden_names),
     )
 
     # --- cde-pvs ---
@@ -584,21 +631,27 @@ def test_cadsr_designations_match_cde_pvs_and_model_pvs(
     )
     cde_body = cde_res.json()
     cde_pvs = _sts_permissible_values_from_list_body(cde_body)
-    req_label = (
-        f"every required designation name ∈ PV values ({len(unique_designations)} name(s))"
-        if unique_designations
-        else "no designation names to match (duplicate check only)"
+    alt_note = (
+        f"non-official designation names absent as PV value ({len(forbidden_names)} name(s))"
+        if forbidden_names
+        else "no non-official designation names (absence check skipped)"
     )
     print(
         f"  Verify cde-pvs: {len(cde_pvs)} permissibleValues row(s); "
-        f"no duplicate value (case-sensitive); {req_label}"
+        f"no duplicate value (case-sensitive); official PV multiset ⊆ all STS values; {alt_note}"
     )
     _assert_no_duplicate_values(cde_pvs, "cde-pvs")
     print("  cde-pvs: duplicate-value check OK")
+    _draft_new_log_sts_pv_rows_and_ncit_counter(cde_pvs, "cde-pvs")
+    s_all_cde = Counter(_pv_values_list(cde_pvs))
+    _assert_cadsr_subset_sts_all_pv_values(c_c, s_all_cde, case_label, "cde-pvs")
+    print("  cde-pvs: official PermissibleValues multiset ⊆ STS all value rows OK")
     cde_value_set = set(_pv_values_list(cde_pvs))
-    if unique_designations:
-        _assert_designations_present(unique_designations, cde_value_set, "cde-pvs")
-        print("  cde-pvs: all required designation names found as value")
+    if forbidden_names:
+        _assert_alternate_designations_absent_as_pv_values(
+            forbidden_names, cde_value_set, "cde-pvs"
+        )
+        print("  cde-pvs: non-official designation names not as PV value OK")
 
     # --- model-pvs ---
     mp_path = (
@@ -617,24 +670,30 @@ def test_cadsr_designations_match_cde_pvs_and_model_pvs(
     mp_pvs = _sts_permissible_values_from_list_body(mp_body)
     print(
         f"  Verify model-pvs: {len(mp_pvs)} permissibleValues row(s); "
-        f"no duplicate value (case-sensitive); {req_label}"
+        f"no duplicate value (case-sensitive); official PV multiset ⊆ all STS values; {alt_note}"
     )
     _assert_no_duplicate_values(mp_pvs, "model-pvs")
     print("  model-pvs: duplicate-value check OK")
+    _draft_new_log_sts_pv_rows_and_ncit_counter(mp_pvs, "model-pvs")
+    s_all_mp = Counter(_pv_values_list(mp_pvs))
+    _assert_cadsr_subset_sts_all_pv_values(c_c, s_all_mp, case_label, "model-pvs")
+    print("  model-pvs: official PermissibleValues multiset ⊆ STS all value rows OK")
     mp_value_set = set(_pv_values_list(mp_pvs))
-    if unique_designations:
-        _assert_designations_present(unique_designations, mp_value_set, "model-pvs")
-        print("  model-pvs: all required designation names found as value")
+    if forbidden_names:
+        _assert_alternate_designations_absent_as_pv_values(
+            forbidden_names, mp_value_set, "model-pvs"
+        )
+        print("  model-pvs: non-official designation names not as PV value OK")
 
     print(
         f"  PASS {case_label}: "
-        f"unique designation names checked={len(unique_designations)} | "
+        f"non-official designation names checked={len(forbidden_names)} | "
         f"cde-pvs rows={len(cde_pvs)} | model-pvs rows={len(mp_pvs)}\n"
     )
     logger.info(
-        "PASS %s: unique_designations=%s cde_pvs_rows=%s model_pvs_rows=%s",
+        "PASS %s: forbidden_names=%s cde_pvs_rows=%s model_pvs_rows=%s",
         case_label,
-        len(unique_designations),
+        len(forbidden_names),
         len(cde_pvs),
         len(mp_pvs),
     )

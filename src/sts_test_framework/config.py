@@ -48,5 +48,5 @@ def project_root() -> Path:
 
 
 def bundled_spec_path() -> Path:
-    """Path to ``spec/v2.json`` at the project root (sibling of ``src/``)."""
-    return project_root() / "spec" / "v2.json"
+    """Path to the bundled OpenAPI spec at the project root (sibling of ``src/``)."""
+    return project_root() / "spec" / "v2-4-0.json"

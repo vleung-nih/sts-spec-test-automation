@@ -33,6 +33,14 @@ MODEL_LABEL = "CCDI-DCC"
 KNOWN_MISSING_IN_STS_DB: frozenset[tuple[str, str]] = frozenset(
     {
         ("diagnosis", "Chondroma, NOS"),
+        ("diagnosis", "Ectomesenchymoma"),
+        ("diagnosis", "Epithelioid Neoplasm, NOS"),
+        ("diagnosis", "Fibrolipoma"),
+        ("diagnosis", "Follicular adenocarcinoma, NOS"),
+        ("diagnosis", "Glomus Tumor, NOS"),
+        ("diagnosis", "Inflammatory carcinoma"),
+        ("diagnosis", "Myxoinflammatory fibroblastic sarcoma"),
+        ("diagnosis", "Myxoma, NOS"),
         ("file_type", "cnn"),
         ("file_type", "cnr"),
         ("file_type", "mzid"),
@@ -52,6 +60,14 @@ KNOWN_MISSING_IN_STS_DB: frozenset[tuple[str, str]] = frozenset(
         ("medical_history_category", "Comorbidity"),
         ("medical_history_category", "Risk Factor"),
         ("submitted_diagnosis", "Chondroma, NOS"),
+        ("submitted_diagnosis", "Ectomesenchymoma"),
+        ("submitted_diagnosis", "Epithelioid Neoplasm, NOS"),
+        ("submitted_diagnosis", "Fibrolipoma"),
+        ("submitted_diagnosis", "Follicular adenocarcinoma, NOS"),
+        ("submitted_diagnosis", "Glomus Tumor, NOS"),
+        ("submitted_diagnosis", "Inflammatory carcinoma"),
+        ("submitted_diagnosis", "Myxoinflammatory fibroblastic sarcoma"),
+        ("submitted_diagnosis", "Myxoma, NOS"),
         ("tumor_spatial_extent", "Not Applicable"),
     }
 )

@@ -85,7 +85,6 @@ def _run_model(
             "--model",
             model,
             "--release",
-            "--quiet",
         ],
         cwd=project_root,
         env=os.environ,
