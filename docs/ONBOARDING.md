@@ -31,7 +31,7 @@ Optional deep dives: [pagination, skip-OOB, reporting](#331-advanced-pagination-
 
 **STS** stands for **Simple Terminology Server**. It is a web API that exposes data models (e.g. for cancer research) in a consistent way. The data is stored in a graph database (Neo4j) and described as **nodes**, **properties**, **terms**, and **tags**. The API lets clients ask things like: “What models exist?”, “What nodes does this model have?”, “What are the allowed values (terms) for this property?”.
 
-The **v2 API** is the second version of this interface. It is **read-only**: all endpoints use the **GET** method. There is no login in the spec (no API keys or tokens for normal use). The API is documented in an **OpenAPI** specification file (`spec/v2.json`), which lists every URL path, its parameters, and the expected response shapes.
+The **v2 API** is the second version of this interface. It is **read-only**: all endpoints use the **GET** method. There is no login in the spec (no API keys or tokens for normal use). The API is documented in an **OpenAPI** specification file (`spec/v2-4-0.json`), which lists every URL path, its parameters, and the expected response shapes.
 
 **Why we test it:** Before releasing changes to STS, we need to confirm that every documented endpoint behaves as the spec says (right status codes, right response shape). This framework automates that checking.
 
@@ -41,7 +41,7 @@ The **v2 API** is the second version of this interface. It is **read-only**: all
 
 At a high level, the framework does four things:
 
-1. **Reads the API contract** – It loads the OpenAPI spec (`spec/v2.json`) so it knows every endpoint, its parameters, and expected responses.
+1. **Reads the API contract** – It loads the OpenAPI spec (`spec/v2-4-0.json`) so it knows every endpoint, its parameters, and expected responses.
 2. **Gets real data from the API** – It calls the live API once to “discover” real IDs and names (e.g. a model handle, a node handle, a tag). That discovery data is used to build valid requests for each endpoint.
 3. **Generates test cases** – For each endpoint in the spec, it creates at least one “positive” test (expects 200 OK) and, where the spec says so, one “negative” test (expects 404 or 422 for bad input).
 4. **Runs the tests and reports** – It sends HTTP requests for each generated case, checks status codes and basic response shape, and writes a **JSON** and **HTML** report with pass/fail and timing.
@@ -60,7 +60,7 @@ OpenAPI mechanics and discovery are in §3.1–§3.5; **runnable suites** and re
 
 ### 3.1 OpenAPI spec (the “spec”)
 
-The **OpenAPI** (formerly Swagger) specification is a standard way to describe a REST API. The file `spec/v2.json` contains:
+The **OpenAPI** (formerly Swagger) specification is a standard way to describe a REST API. The file `spec/v2-4-0.json` contains:
 
 - **Paths** – Each URL pattern (e.g. `/v2/models/`, `/v2/id/{id}`).
 - **Operations** – For each path, the HTTP method (here, only GET) and:
@@ -212,7 +212,7 @@ Manual caDSR `GET /DataElement/{publicId}` calls retry transient failures (conne
 - **caDSR vs STS PVS (Designations / DRAFT NEW)**
   - **Test file:** `tests/test_manual/test_cadsr_alternatevalues_draftnew_cdes.py`
   - **Markers:** `cadsr_alt_pvs`, `cadsr_draft_new`
-  - **`cadsr_alt_pvs`:** Compares caDSR **Designations** names to STS **cde-pvs** and **model-pvs** (`data/cadsr_alternate_values_cases.json`).
+  - **`cadsr_alt_pvs`:** Collects caDSR `Designations[].name` (all types by default), subtracts every official `PermissibleValues[].value` string, and asserts the remaining **non-official** names **do not** appear as their own `permissibleValues.value` on STS **cde-pvs** or **model-pvs** (removed duplicate null-NCIt clutter rows). **Synonyms are not checked** (NCIt + caDSR strings overlap there). Optional **`CADSR_ALTERNATE_DESIGNATION_TYPES`** limits which `Designations[].type` rows are included before that subtraction (unset or `*` = all types). Also asserts caDSR official PV multiset ⊆ STS **all** `value` rows (not NCIt-only), and no duplicate PV `value` strings. Cases: `data/cadsr_alternate_values_cases.json`.
   - **`cadsr_draft_new` assertions:**
     - caDSR `workflowStatus` is **DRAFT NEW**
     - caDSR `longName` exactly matches STS `CDEFullName`
@@ -223,7 +223,7 @@ Manual caDSR `GET /DataElement/{publicId}` calls retry transient failures (conne
     - CDE version for cde-pvs URL is read from live caDSR.
     - Set `CADSR_BASE_URL` to use non-default caDSR host.
     - `STS_SSL_VERIFY` applies to both STS and caDSR `APIClient` calls.
-    - By default all designation types are required; set `CADSR_DESIGNATION_TYPES` (for example `MCL Alt Name`) to filter required types.
+    - **`cadsr_alt_pvs`:** runs with no extra env by default; set `CADSR_ALTERNATE_DESIGNATION_TYPES` only if you want to limit which `Designations[].type` values are considered before subtracting official PV strings.
 - **Legacy CDE-PVS vs v2**
   - **Comparison:** Legacy `GET {origin}/cde-pvs/{id}/{version}?format=json` vs v2 `GET .../terms/cde-pvs/{id}/{version}/pvs`
   - **Origin derivation:** `origin` comes from `STS_BASE_URL` with trailing `/v2` removed via `sts_test_framework.config.sts_legacy_origin()`.
@@ -372,7 +372,8 @@ sts-spec-test-automation/
 │   └── templates/
 │       └── index.html        # Test runner UI (single page + SSE client)
 ├── spec/
-│   └── v2.json               # OpenAPI spec for STS v2 (source of truth; do not edit by hand unless you own the API)
+│   ├── v2-4-0.json           # Bundled OpenAPI spec (default; STS v2 contract)
+│   └── v2.json               # Earlier snapshot (reference only)
 ├── src/sts_test_framework/   # Main framework code
 │   ├── __init__.py
 │   ├── loader.py              # Load spec file; get paths/schemas; normalize paths
@@ -578,7 +579,7 @@ Implementation detail: base URL resolution lives in [sts_test_framework.config.s
 | `STS_DEDUP_LIMIT`           | Total discovered cases for `test_model_pvs_no_duplicates.py`; split across `MAJOR_MODELS` (fair: `limit // n` plus remainder to first models). Default **140** with **7** models → **20** properties per model. | `140`                                            |
 | `STS_PARALLEL_WORKERS`      | Max models to run concurrently in `scripts/run_autogenerated_tests.py` (default `1` sequential; increase e.g. `2`, `8` for parallel)                                                                            | `1`                                              |
 | `CADSR_BASE_URL`            | Root URL for the caDSR REST API (manual modules; paths like `/DataElement/{publicId}`). See [§3.7.1](#371-cadsr-and-legacy-cde-pvs-reference).                                                                  | `https://cadsrapi.cancer.gov/rad/NCIAPI/1.0/api` |
-| `CADSR_DESIGNATION_TYPES`   | Optional: comma-separated `Designations[].type` values to **limit** which names must appear in STS; unset or `*` means **all** types. See [§3.7.1](#371-cadsr-and-legacy-cde-pvs-reference).                    | (unset = all)                                    |
+| `CADSR_ALTERNATE_DESIGNATION_TYPES` | **`cadsr_alt_pvs` only:** optional comma-separated `Designations[].type` filter before subtracting official PV values; unset or `*` = all types. See [§3.7.1](#371-cadsr-and-legacy-cde-pvs-reference). | (unset = all designation types)                  |
 | `CADSR_GET_MAX_ATTEMPTS`    | Manual caDSR DataElement GET: max attempts (including the first try) before failing on retryable errors. See [§3.7.1](#371-cadsr-and-legacy-cde-pvs-reference).                                                 | `4`                                              |
 | `CADSR_GET_RETRY_DELAY_SEC` | Seconds to wait between retryable caDSR DataElement GET attempts. See [§3.7.1](#371-cadsr-and-legacy-cde-pvs-reference).                                                                                        | `2.0`                                            |
 
@@ -688,7 +689,7 @@ The CLI loads the spec, runs discovery, generates cases, runs them, and **always
 python -m sts_test_framework.cli
 ```
 
-Defaults: spec = `spec/v2.json`, base URL = `STS_BASE_URL` or `https://sts-qa.cancer.gov/v2` (same default as `DEFAULT_STS_BASE_URL` in [sts_test_framework/config.py](../src/sts_test_framework/config.py)), report dir = `reports/`. For **prod**, **stage**, or **local**, set `STS_BASE_URL` or pass `--base-url` (see [§5.2](#52-configuration-environment-variables)).
+Defaults: spec = `spec/v2-4-0.json`, base URL = `STS_BASE_URL` or `https://sts-qa.cancer.gov/v2` (same default as `DEFAULT_STS_BASE_URL` in [sts_test_framework/config.py](../src/sts_test_framework/config.py)), report dir = `reports/`. For **prod**, **stage**, or **local**, set `STS_BASE_URL` or pass `--base-url` (see [§5.2](#52-configuration-environment-variables)).
 
 **Example:** Your CI job runs after every deploy. You run `python -m sts_test_framework.cli --report reports/` and publish `reports/report.html` as an artifact so the team can open it and see which endpoints passed or failed. You don’t need pytest in that job—just the CLI and the report files.
 
@@ -696,7 +697,7 @@ Defaults: spec = `spec/v2.json`, base URL = `STS_BASE_URL` or `https://sts-qa.ca
 
 ```bash
 # Custom spec and base URL
-python -m sts_test_framework.cli --spec spec/v2.json --base-url https://sts.cancer.gov/v2
+python -m sts_test_framework.cli --spec spec/v2-4-0.json --base-url https://sts.cancer.gov/v2
 
 # Write reports to a specific folder
 python -m sts_test_framework.cli --report reports/
@@ -755,7 +756,7 @@ Whether you use **pytest** or the **CLI**, the same pipeline runs: load spec →
 
 **Short summary:**
 
-1. **Load spec** – Read `spec/v2.json` (or the path you gave); parse as JSON or YAML into a dict with paths and schemas.
+1. **Load spec** – Read `spec/v2-4-0.json` (or the path you gave); parse as JSON or YAML into a dict with paths and schemas.
 2. **Create client** – HTTP client with the chosen base URL (and optional SSL verify from env).
 3. **Discovery** – GET models → nodes → properties → terms, GET tags; build `test_data` with real handles and IDs.
 4. **Generate cases** – For each GET operation in the spec, build positive (200) and optionally negative (404/422) cases using `test_data`.
@@ -768,7 +769,7 @@ A more detailed breakdown of each step is below.
 
 #### Step 1: Load the spec
 
-- **What happens:** The framework reads the spec file from disk (e.g. `spec/v2.json`). The file may be JSON or YAML; the loader tries to parse it as JSON first, then falls back to YAML if needed.
+- **What happens:** The framework reads the spec file from disk (e.g. `spec/v2-4-0.json`). The file may be JSON or YAML; the loader tries to parse it as JSON first, then falls back to YAML if needed.
 - **Result:** A Python dictionary with at least:
   - `paths` – each key is a path template (e.g. `/v2/models/`, `/v2/id/{id}`); each value describes the HTTP methods and their parameters and responses.
   - `components.schemas` – reusable response/request body schemas (e.g. `Model`, `Node`, `Entity`).
@@ -962,7 +963,7 @@ Example:
     STS_BASE_URL: ${{ vars.STS_BASE_URL }}
   run: |
     pip install -e .
-    python -m sts_test_framework.cli --spec spec/v2.json --report reports/
+    python -m sts_test_framework.cli --spec spec/v2-4-0.json --report reports/
 ```
 
 Or run pytest and optionally run the CLI for reports:
@@ -993,11 +994,11 @@ python3 parser_agent/main.py logs/manual_2026-03-25T00-00-00.log
 
 ### 7.5 Performance testing (concurrent GETs)
 
-This path measures **latency and throughput** for live STS, separate from the functional pass/fail CLI. It reuses **OpenAPI → discovery → `generate_cases`**, but only **positive** GET cases (no negative tests). Cases run through a **thread pool**: at most `--concurrency` requests are in flight at once (default 3). Each case is repeated `--iterations` times (see defaults in `[perf_cli.py](../src/sts_test_framework/perf_cli.py)`) so per-endpoint min/avg/percentiles reflect multiple samples.
+This path measures **latency and throughput** for live STS, separate from the functional pass/fail CLI. It reuses **OpenAPI → discovery → `generate_cases`**, but only **positive** GET cases (no negative tests). Cases run through a **thread pool**: at most `--concurrency` requests are in flight at once (default 5). Each case is repeated `--iterations` times (see defaults in `[perf_cli.py](../src/sts_test_framework/perf_cli.py)`) so per-endpoint min/avg/percentiles reflect multiple samples.
 
 **How to run:** **Web UI** → suite **Performance Tests** (`bash` required on Windows, same as other shell suites). 
 
-**CLI bundle:** `[scripts/run_perf_tests.sh](../scripts/run_perf_tests.sh)` loops models (`STS_MODELS` or script default) and calls `python -m sts_test_framework.perf_cli --model … --release`, forwarding extra args. 
+**CLI bundle:** `[scripts/run_perf_tests.sh](../scripts/run_perf_tests.sh)` loops models (`STS_MODELS` or script default) and calls `python -m sts_test_framework.perf_cli --model … --release`, forwarding extra args. When `STS_MODELS` is unset, the script defaults to **CDS, CCDI, CCDI-DCC, C3DC, CTDC, and ICDC** (one perf run per model, sequential). 
 
 **Single model:** `python -m sts_test_framework.perf_cli --model CDS --release` from the project root (editable install or `PYTHONPATH=src`). 
 
@@ -1026,7 +1027,7 @@ This suite is **not** included in `run_full_suite.sh`.
 - **Positive test** – A test that sends valid input and expects success (200).
 - **Query parameter** – Key-value in the URL after `?` (e.g. `skip=0`, `limit=10`).
 - **Schema** – In OpenAPI, the description of a response body (e.g. “object with fields nanoid, handle, version”). Used for contract validation.
-- **Spec** – The OpenAPI specification file (`spec/v2.json`); the “contract” of the API.
+- **Spec** – The OpenAPI specification file (`spec/v2-4-0.json`); the “contract” of the API.
 - **Tag** – In OpenAPI, a label on an operation (e.g. `id`, `model`, `models`). Used to group endpoints and to filter which tests to run (`--tags`).
 - **test_data** – The dictionary produced by discovery (model_handle, node_handle, etc.) used to fill path and query parameters when generating cases.
 

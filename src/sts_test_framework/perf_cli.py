@@ -32,7 +32,11 @@ def main() -> None:
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
     # -- target --
-    parser.add_argument("--spec", default=None, help="Path to OpenAPI spec (v2.json)")
+    parser.add_argument(
+        "--spec",
+        default=None,
+        help="Path to OpenAPI spec (default: bundled spec/v2-4-0.json)",
+    )
     parser.add_argument(
         "--base-url", default=None,
         help=f"STS base URL including /v2 (default: STS_BASE_URL or {DEFAULT_STS_BASE_URL})",
@@ -47,7 +51,7 @@ def main() -> None:
                         help="Output directory for reports (default: reports/perf/<model>/)")
 
     # -- perf config --
-    parser.add_argument("--concurrency", type=int, default=3,
+    parser.add_argument("--concurrency", type=int, default=5,
                         help="Number of concurrent request threads.")
     parser.add_argument("--iterations", type=int, default=5,
                         help="How many times to repeat each test case.")
