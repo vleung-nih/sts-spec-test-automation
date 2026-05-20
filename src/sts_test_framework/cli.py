@@ -25,7 +25,7 @@ def main() -> None:
     parser.add_argument(
         "--spec",
         default=None,
-        help="Path to OpenAPI spec (default: bundled spec/v2-4-0.json)",
+        help="Path to OpenAPI spec (default: bundled spec/v2-5-0.json)",
     )
     parser.add_argument(
         "--base-url",

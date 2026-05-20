@@ -1,5 +1,5 @@
 """
-Load and parse OpenAPI spec (bundled default: spec/v2-4-0.json).
+Load and parse OpenAPI spec (bundled default: spec/v2-5-0.json).
 
 Provides ``load_spec``, path/schema accessors, and ``normalize_path_for_base`` so
 generated request paths align with a base URL that already includes ``/v2``.
