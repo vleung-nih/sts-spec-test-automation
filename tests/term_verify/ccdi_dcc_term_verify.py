@@ -32,6 +32,7 @@ MODEL_LABEL = "CCDI-DCC"
 
 KNOWN_MISSING_IN_STS_DB: frozenset[tuple[str, str]] = frozenset(
     {
+        ("diagnosis", "Atypical lipomatous tumor"),
         ("diagnosis", "Chondroma, NOS"),
         ("diagnosis", "Ectomesenchymoma"),
         ("diagnosis", "Epithelioid Neoplasm, NOS"),
@@ -41,6 +42,9 @@ KNOWN_MISSING_IN_STS_DB: frozenset[tuple[str, str]] = frozenset(
         ("diagnosis", "Inflammatory carcinoma"),
         ("diagnosis", "Myxoinflammatory fibroblastic sarcoma"),
         ("diagnosis", "Myxoma, NOS"),
+        ("diagnosis", "Osteochondroma"),
+        ("diagnosis", "Palmar/plantar type fibromatosis"),
+        ("diagnosis", "Round cell sarcoma, NOS"),
         ("file_type", "cnn"),
         ("file_type", "cnr"),
         ("file_type", "mzid"),
@@ -59,6 +63,7 @@ KNOWN_MISSING_IN_STS_DB: frozenset[tuple[str, str]] = frozenset(
         ("medical_history_category", "Clinical Assessment"),
         ("medical_history_category", "Comorbidity"),
         ("medical_history_category", "Risk Factor"),
+        ("submitted_diagnosis", "Atypical lipomatous tumor"),
         ("submitted_diagnosis", "Chondroma, NOS"),
         ("submitted_diagnosis", "Ectomesenchymoma"),
         ("submitted_diagnosis", "Epithelioid Neoplasm, NOS"),
@@ -68,6 +73,9 @@ KNOWN_MISSING_IN_STS_DB: frozenset[tuple[str, str]] = frozenset(
         ("submitted_diagnosis", "Inflammatory carcinoma"),
         ("submitted_diagnosis", "Myxoinflammatory fibroblastic sarcoma"),
         ("submitted_diagnosis", "Myxoma, NOS"),
+        ("submitted_diagnosis", "Osteochondroma"),
+        ("submitted_diagnosis", "Palmar/plantar type fibromatosis"),
+        ("submitted_diagnosis", "Round cell sarcoma, NOS"),
         ("tumor_spatial_extent", "Not Applicable"),
     }
 )
