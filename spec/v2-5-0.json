@@ -3,7 +3,7 @@
   "info": {
     "title": "Simple Terminology Server",
     "description": "\nThe Simple Terminology Server (STS) exposes elements of data models in\nan intuitive, consistent way. Data models expressed in the form of a\n[property graph](https://en.wikipedia.org/wiki/Graph_database#Labeled-property_graph)\n-- i.e., as nodes, relationships, properties, and terms -- can be explored and\nqueried via this interface. Data models are stored in an instance of a\n[Metamodel Database (MDB)](https://github.com/CBIIT/bento-meta) backed by a\n[Neo4j](https://neo4j.com) server.",
-    "version": "2.0.0"
+    "version": "2.5.0"
   },
   "paths": {
     "/v2/id/{id}": {
@@ -1340,23 +1340,9 @@
             "description": "Cache cleared successfully.",
             "content": {
               "application/json": {
-                "schema": {}
-              }
-            }
-          }
-        }
-      }
-    },
-    "/": {
-      "get": {
-        "summary": "Root",
-        "operationId": "root__get",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
+                "schema": {
+
+                }
               }
             }
           }

@@ -884,12 +884,16 @@ Example (already in the project):
 
 ```python
 # tests/test_manual/test_root.py
-def test_root_returns_200(api_client):
+def test_root_returns_ready_with_spec_version(api_client, spec_version):
     response = api_client.get("/")
     assert response.status_code == 200
+    data = response.json()
+    assert data.get("application") == "STS"
+    assert data.get("status") == "READY"
+    assert data.get("version") == spec_version
 ```
 
-You get `api_client` and `test_data` from `conftest.py`; no need to load the spec or run discovery yourself.
+You get `api_client`, `spec_version`, and `test_data` from `conftest.py`; `spec_version` comes from the bundled OpenAPI spec's `info.version`.
 
 ### 6.2 Changing what gets discovered
 

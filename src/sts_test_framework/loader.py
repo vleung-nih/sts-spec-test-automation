@@ -56,6 +56,15 @@ def get_schemas(spec: dict[str, Any]) -> dict[str, Any]:
     return components.get("schemas") or {}
 
 
+def get_info_version(spec: dict[str, Any]) -> str:
+    """Return OpenAPI ``info.version`` (STS API package version in the spec)."""
+    info = spec.get("info") or {}
+    version = info.get("version")
+    if not version:
+        raise ValueError("OpenAPI spec missing info.version")
+    return str(version)
+
+
 def get_operations(spec: dict[str, Any], tag_filter: list[str] | None = None) -> list[tuple[str, str, dict]]:
     """
     Yield every HTTP operation under ``paths`` (optional tag filter).
