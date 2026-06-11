@@ -209,9 +209,9 @@ Manual caDSR `GET /DataElement/{publicId}` calls retry transient failures (conne
     - model-pvs must exclude the URL, match YAML enum multiset (`yaml_enum.file` / `yaml_enum.property`), and return rows with null NCIt + empty synonyms.
   - **Optional display helper:** `pytest_param_id` shortens pytest case names.
   - **Run command:** `pytest tests/test_manual/test_cadsr_multi_concept_cdes.py -m cadsr_multi_concept_pv -v`
-- **caDSR vs STS PVS (Designations / DRAFT NEW)**
+- **caDSR vs STS PVS (Designations / DRAFT NEW / RELEASED)**
   - **Test file:** `tests/test_manual/test_cadsr_alternatevalues_draftnew_cdes.py`
-  - **Markers:** `cadsr_alt_pvs`, `cadsr_draft_new`
+  - **Markers:** `cadsr_alt_pvs`, `cadsr_draft_new`, `cadsr_released_cde_pvs`
   - **`cadsr_alt_pvs`:** Collects caDSR `Designations[].name` (all types by default), subtracts every official `PermissibleValues[].value` string, and asserts the remaining **non-official** names **do not** appear as their own `permissibleValues.value` on STS **cde-pvs** or **model-pvs** (removed duplicate null-NCIt clutter rows). **Synonyms are not checked** (NCIt + caDSR strings overlap there). Optional **`CADSR_ALTERNATE_DESIGNATION_TYPES`** limits which `Designations[].type` rows are included before that subtraction (unset or `*` = all types). Also asserts caDSR official PV multiset ⊆ STS **all** `value` rows (not NCIt-only), and no duplicate PV `value` strings. Cases: `data/cadsr_alternate_values_cases.json`.
   - **`cadsr_draft_new` assertions:**
     - caDSR `workflowStatus` is **DRAFT NEW**
@@ -219,8 +219,15 @@ Manual caDSR `GET /DataElement/{publicId}` calls retry transient failures (conne
     - Every caDSR `PermissibleValues[].value` appears in STS cde-pvs rows with non-null `ncit_concept_code` (rows with null NCIt are ignored)
   - **Optional model-pvs check:** If case has `model`, `model_version`, and `property`, also assert PV multiset subset against STS model-pvs NCIt-coded rows (no `CDEFullName` check there).
   - **Cases file:** `data/cadsr_draft_new_cases.json`
+  - **`cadsr_released_cde_pvs` assertions:**
+    - caDSR `workflowStatus` is **RELEASED**
+    - caDSR `longName` exactly matches STS `CDEFullName`
+    - caDSR `PermissibleValues[].value` multiset **equals** STS **cde-pvs** `permissibleValues[].value` multiset (**all** rows, not NCIt-only)
+    - Unlike `cadsr_draft_new` (subset on NCIt rows), parity catches stale STS PVs that caDSR no longer has
+  - **Cases file:** `data/cadsr_released_cde_pv_cases.json` (pinned `cde_id` + `cde_version`)
+  - **Run command:** `pytest tests/test_manual/test_cadsr_alternatevalues_draftnew_cdes.py -m cadsr_released_cde_pvs -v`
   - **Other notes:**
-    - CDE version for cde-pvs URL is read from live caDSR.
+    - CDE version for **draft_new** cde-pvs URL is read from live caDSR; **released** cases use pinned `cde_version` from JSON.
     - Set `CADSR_BASE_URL` to use non-default caDSR host.
     - `STS_SSL_VERIFY` applies to both STS and caDSR `APIClient` calls.
     - **`cadsr_alt_pvs`:** runs with no extra env by default; set `CADSR_ALTERNATE_DESIGNATION_TYPES` only if you want to limit which `Designations[].type` values are considered before subtracting official PV strings.

@@ -1,0 +1,19 @@
+{
+  "cases": [
+    {
+      "cde_id": "12445832",
+      "cde_version": "1.00",
+      "description": "RELEASED CDE: Specimen Material Category PV parity"
+    },
+    {
+      "cde_id": "6824805",
+      "cde_version": "5.00",
+      "description": "RELEASED CDE: unit of measure PV parity"
+    },
+    {
+      "cde_id": "16607972",
+      "cde_version": "1.00",
+      "description": "RELEASED CDE: tumor classification PV parity"
+    }
+  ]
+}
