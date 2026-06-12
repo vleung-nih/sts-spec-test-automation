@@ -32,6 +32,11 @@ MODEL_LABEL = "CCDI-DCC"
 
 KNOWN_MISSING_IN_STS_DB: frozenset[tuple[str, str]] = frozenset(
     {
+        ("alteration_effect", "Loss of Heterozygosity"),
+        ("alteration_effect", "Methylated"),
+        ("alteration_effect", "Unmethylated"),
+        ("alteration_type", "Not Applicable"),
+        ("alteration_type", "Not Reported"),
         ("diagnosis", "Atypical lipomatous tumor"),
         ("diagnosis", "Chondroma, NOS"),
         ("diagnosis", "Ectomesenchymoma"),
@@ -58,7 +63,14 @@ KNOWN_MISSING_IN_STS_DB: frozenset[tuple[str, str]] = frozenset(
         ("library_source_material", "Not Applicable"),
         ("library_source_molecule", "Not Applicable"),
         ("library_strand", "Not Reported"),
+        ("library_strategy", "Bulk RNA-Seq"),
         ("library_strategy", "CITE-Seq"),
+        ("library_strategy", "mRNA-Seq"),
+        ("library_strategy", "scDNA-Seq"),
+        ("library_strategy", "scMultiome"),
+        ("library_strategy", "scRNA-Seq"),
+        ("library_strategy", "snATAC-Seq"),
+        ("library_strategy", "Spatial-tx"),
         ("medical_history_category", "Adverse Event"),
         ("medical_history_category", "Clinical Assessment"),
         ("medical_history_category", "Comorbidity"),

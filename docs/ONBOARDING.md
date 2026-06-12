@@ -252,7 +252,7 @@ These verification pipelines are **not** pytest and **not** the OpenAPI-generate
 | `c3dc-model-props.yml`              | `python tests/term_verify/c3dc_term_verify.py`     | `reports/term_value/C3DC/`     |
 | `ctdc_model_properties_file-2.yaml` | `python tests/term_verify/ctdc_term_verify.py`     | `reports/term_value/CTDC/`     |
 | `icdc-model-props.yml`              | `python tests/term_verify/icdc_term_verify.py`     | `reports/term_value/ICDC/`     |
-| `cds-model-props-4.yml`             | `python tests/term_verify/cds_term_verify.py`      | `reports/term_value/CDS/`      |
+| `cds-model-props-12.0.0.yml`        | `python tests/term_verify/cds_term_verify.py`      | `reports/term_value/CDS/`      |
 | `ccdi-dcc-model-props-3.yml`        | `python tests/term_verify/ccdi_dcc_term_verify.py` | `reports/term_value/CCDI-DCC/` |
 
 
