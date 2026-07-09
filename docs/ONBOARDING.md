@@ -1002,7 +1002,7 @@ The **parser_agent** module is an **optional**, **informational** helper: it **p
 python3 parser_agent/main.py logs/manual_2026-03-25T00-00-00.log
 ```
 
-**Optional:** override the Bedrock model with **`BEDROCK_MODEL_ID`** (default in `[parser_agent/config.py](../parser_agent/config.py)`). **`AWS_DEFAULT_REGION`** is read as the region when setting up the client.
+**Optional:** override the Bedrock model with **`BEDROCK_MODEL_ID`** (default: `us.anthropic.claude-haiku-4-5-20251001-v1:0` in `[parser_agent/config.py](../parser_agent/config.py)`). **`AWS_DEFAULT_REGION`** is read as the region when setting up the client.
 
 ### 7.5 Performance testing (concurrent GETs)
 
