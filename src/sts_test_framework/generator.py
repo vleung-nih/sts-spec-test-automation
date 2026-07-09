@@ -498,6 +498,21 @@ def _resolve_path_params(path_template: str, path_params: list[dict], test_data:
             else:
                 values[name] = "1.0"
             continue
+        if name == "originName":
+            if not test_data.get("edp_origin_name"):
+                return None
+            values[name] = test_data["edp_origin_name"]
+            continue
+        if name == "originId":
+            if not test_data.get("edp_origin_id"):
+                return None
+            values[name] = test_data["edp_origin_id"]
+            continue
+        if name == "originVersion":
+            if not test_data.get("edp_origin_version"):
+                return None
+            values[name] = test_data["edp_origin_version"]
+            continue
     return values if len(values) == len(path_params) else None
 
 

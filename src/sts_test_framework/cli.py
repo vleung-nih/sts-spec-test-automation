@@ -90,7 +90,18 @@ def main() -> None:
         # Summary of what was found (keys only; optional 1–2 example values)
         parts = []
         discovery_info = {}
-        for key in ("model_handle", "model_version", "node_handle", "prop_handle", "term_value", "tag_key", "tag_value"):
+        for key in (
+            "model_handle",
+            "model_version",
+            "node_handle",
+            "prop_handle",
+            "term_value",
+            "tag_key",
+            "tag_value",
+            "edp_origin_name",
+            "edp_origin_id",
+            "edp_origin_version",
+        ):
             if key in test_data:
                 v = test_data[key]
                 if isinstance(v, str) and len(v) > 20:
