@@ -9,7 +9,7 @@ This document explains what the framework does, how it works, how to run it, and
 - **Changing or debugging tests:** [§6](#6-how-to-add-or-change-tests), [§9](#9-troubleshooting-and-faq).
 - **Generator internals / edge cases:** [§3.3.1](#331-advanced-pagination-skip-oob-and-reporting-quirks), [§5.7](#57-what-happens-when-you-run-under-the-hood).
 
-Optional deep dives: [pagination, skip-OOB, reporting](#331-advanced-pagination-skip-oob-and-reporting-quirks) · [caDSR & legacy CDE-PVS manual tests](#371-cadsr-and-legacy-cde-pvs-reference)
+Optional deep dives: [pagination, skip-OOB, reporting](#331-advanced-pagination-skip-oob-and-reporting-quirks) · [caDSR & legacy CDE-PVS manual tests](#371-cadsr-and-legacy-cde-pvs-reference) · [EDP & custom CDE manual tests](#372-edp-and-custom-cde-reference)
 
 ---
 
@@ -237,6 +237,32 @@ Manual caDSR `GET /DataElement/{publicId}` calls retry transient failures (conne
   - **Origin derivation:** `origin` comes from `STS_BASE_URL` with trailing `/v2` removed via `sts_test_framework.config.sts_legacy_origin()`.
   - **Config rule:** Do not set a second base URL unless legacy routes are hosted elsewhere; then adjust `STS_BASE_URL` or extend the helper.
   - **Reference test:** `tests/test_manual/test_cde_pvs_legacy_vs_v2.py` (marker `cde_pvs_legacy`)
+
+### 3.7.2 EDP and custom CDE (reference)
+
+Skip unless you run or debug EDP manual modules.
+
+Manual tests complement **generated** EDP smoke coverage (discovery via ``STS_EDP_ORIGIN_NAME``; see [§6.2](#62-changing-what-gets-discovered)). Generated cases check HTTP status and pagination; manual cases pin **origin/id/version** triples and assert **PV `value` multiset** parity.
+
+- **Test file:** `tests/test_manual/test_edp_custom_cdes.py`
+- **Markers:** `edp_cadsr_parity`, `edp_custom_cde`
+- **`edp_cadsr_parity` assertions:**
+  - ``GET /edp/{origin_name}/{origin_id}/{origin_version}/terms`` returns **200** with non-empty ``Term[]``
+  - PV ``value`` multiset **equals** ``GET /terms/cde-pvs/{origin_id}/{origin_version}/pvs`` PV ``value`` multiset (all rows; NCIt/synonyms ignored)
+  - Defining term appears in ``GET /edps/{origin_name}`` with matching ``origin_id`` + ``origin_version``
+  - No duplicate PV ``value`` strings on EDP response
+- **`edp_custom_cde` assertions:**
+  - Same EDP GET/listing checks for **non-caDSR** ``origin_name`` (e.g. ``CRDC``)
+  - PV multiset **equals** ``expected_pv_values`` in JSON and/or Enum labels from ``yaml_ref`` (`file` + `property` under `data/data-models-yaml/`)
+  - Does **not** call ``cde-pvs`` (custom authorities are EDP-only)
+- **Case files:**
+  - `data/edp_cadsr_parity_cases.json` — pinned caDSR triples; ``compare_cde_pvs`` defaults true
+  - `data/edp_custom_cde_cases.json` — pinned custom triples + expected PVs or ``yaml_ref``
+- **Version strings:** Use exact MDB pins (e.g. ``2.0`` not ``2.00``); mismatch yields empty ``cde-pvs`` or EDP **404**.
+- **Run commands:**
+  - `pytest tests/test_manual/test_edp_custom_cdes.py -m edp_cadsr_parity -v`
+  - `pytest tests/test_manual/test_edp_custom_cdes.py -m edp_custom_cde -v`
+  - `pytest tests/test_manual/test_edp_custom_cdes.py -m "edp_cadsr_parity or edp_custom_cde" -v`
 
 ### 3.8 Term-by-value (YAML → STS)
 
