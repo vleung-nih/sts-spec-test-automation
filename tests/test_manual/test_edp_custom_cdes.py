@@ -14,7 +14,7 @@ Two families:
 1. ``edp_cadsr_parity`` — caDSR EDP PV ``value`` multiset must **equal** v2
    ``GET /terms/cde-pvs/{id}/{version}/pvs`` PV ``value`` multiset (NCIt/synonyms ignored).
 2. ``edp_custom_cde`` — non-caDSR origins; PV multiset must match ``expected_pv_values``
-   in JSON and/or Enum labels from a vendored YAML property (``yaml_ref``).
+   in JSON, ``expected_pv_values_file`` snapshot, and/or Enum labels from a vendored YAML property (``yaml_ref``).
 
 ================================================================================
 WHERE THE DATA COMES FROM
@@ -22,6 +22,7 @@ WHERE THE DATA COMES FROM
 
 - ``data/edp_cadsr_parity_cases.json`` — pinned caDSR triples (exact ``origin_version``).
 - ``data/edp_custom_cde_cases.json`` — pinned custom-authority triples + expected PVs.
+- ``data/edp_expected_pv/*.json`` — full PV label snapshots referenced by ``expected_pv_values_file``.
 - STS: session ``api_client`` — ``GET /edp/.../terms``, optional ``GET /edps/{origin}``,
   and ``GET /terms/cde-pvs/.../pvs`` (caDSR parity only).
 
@@ -182,11 +183,26 @@ def _enum_values_from_yaml(yaml_file: str, prop_handle: str) -> list[str]:
     return values
 
 
+def _load_expected_pv_values_from_file(rel_path: str) -> list[str]:
+    """Load a sorted JSON string array snapshot (``expected_pv_values_file`` on a case)."""
+    path = project_root() / rel_path
+    if not path.is_file():
+        pytest.fail(f"expected_pv_values_file not found: {path}")
+    with open(path, encoding="utf-8") as f:
+        payload = json.load(f)
+    if not isinstance(payload, list) or not payload:
+        pytest.fail(f"expected_pv_values_file {path}: expected non-empty JSON array")
+    return [str(v) for v in payload]
+
+
 def _resolve_expected_pv_values(case: dict[str, Any]) -> list[str]:
-    """Custom CDE cases must supply expected_pv_values and/or yaml_ref; fail if neither is usable."""
+    """Custom CDE cases must supply expected_pv_values, expected_pv_values_file, and/or yaml_ref."""
     pinned = case.get("expected_pv_values")
     if isinstance(pinned, list) and pinned:
         return [str(v) for v in pinned]
+    values_file = case.get("expected_pv_values_file")
+    if isinstance(values_file, str) and values_file.strip():
+        return _load_expected_pv_values_from_file(values_file.strip())
     yaml_ref = case.get("yaml_ref")
     if isinstance(yaml_ref, dict):
         yf = yaml_ref.get("file")
@@ -194,8 +210,8 @@ def _resolve_expected_pv_values(case: dict[str, Any]) -> list[str]:
         if yf and prop:
             return _enum_values_from_yaml(str(yf), str(prop))
     pytest.fail(
-        f"edp_custom_cde case {_case_id(case)}: set non-empty expected_pv_values "
-        "and/or yaml_ref with file + property"
+        f"edp_custom_cde case {_case_id(case)}: set non-empty expected_pv_values, "
+        "expected_pv_values_file, and/or yaml_ref with file + property"
     )
 
 
@@ -340,7 +356,7 @@ def test_edp_custom_cde_matches_expected(api_client: APIClient, case: dict[str, 
     Custom-authority EDP: PV labels must match pinned expectations (not cde-pvs).
 
     Steps per JSON case:
-    1. Load expected PV labels from expected_pv_values and/or yaml_ref in the case file
+    1. Load expected PV labels from expected_pv_values, expected_pv_values_file, and/or yaml_ref
     2. GET /edp/{origin}/{id}/{version}/terms — collect Term.value strings
     3. GET /edps/{origin} (paginated) — confirm the custom CDE is listed
     4. Assert EDP multiset equals expected multiset
@@ -362,7 +378,7 @@ def test_edp_custom_cde_matches_expected(api_client: APIClient, case: dict[str, 
 
     # --- Step 1: load expected PV labels from the case JSON or vendored YAML ---
     expected_values = _resolve_expected_pv_values(case)
-    print(f"  Expected PV count={len(expected_values)} (from JSON and/or yaml_ref)")
+    print(f"  Expected PV count={len(expected_values)} (from JSON/file/yaml_ref)")
 
     # --- Step 2: fetch PV labels from the generic EDP endpoint ---
     edp_path = _edp_terms_path(origin_name, origin_id, origin_version)
@@ -381,7 +397,10 @@ def test_edp_custom_cde_matches_expected(api_client: APIClient, case: dict[str, 
 
     edp_values = _pv_values_from_edp_terms(edp_body)
     print(f"  EDP permissibleValues count={len(edp_values)} (multiset)")
-    _assert_no_duplicate_values(edp_values, "edp")
+    # ICD-O and other ontology-backed sets may repeat the same display label for distinct codes;
+    # multiset parity with the snapshot is the contract (see CRDC0003).
+    if not case.get("allow_duplicate_pv_values", False):
+        _assert_no_duplicate_values(edp_values, "edp")
 
     # --- Step 3: confirm the custom CDE is listed under GET /edps/{origin} ---
     _assert_edp_listed_in_edps(api_client, origin_name, origin_id, origin_version)

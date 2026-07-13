@@ -42,4 +42,5 @@ markers = [
     "cadsr_multi_concept_pv: caDSR special PVs (multi-Concept or URL + YAML enum); STS null ncit + empty synonyms; pytest -m cadsr_multi_concept_pv",
     "edp_cadsr_parity: caDSR EDP /edp/.../terms PV multiset must match cde-pvs (manual; pytest -m edp_cadsr_parity)",
     "edp_custom_cde: Custom-origin EDP PV multiset must match expected or YAML enum (manual; pytest -m edp_custom_cde)",
+    "edp_edps_unique: GET /edps/{origin} must list each EDP (origin_id, origin_version) once; no duplicate defining terms (manual; pytest -m edp_edps_unique)",
 ]

@@ -135,6 +135,21 @@
         "venous blood specimen",
         "vitreous humor specimen"
       ]
+    },
+    {
+      "origin_name": "CRDC",
+      "origin_id": "CRDC0001",
+      "origin_version": "1",
+      "description": "CRDC uberon value set reference — full EDP PV multiset vs STS snapshot",
+      "expected_pv_values_file": "data/edp_expected_pv/CRDC0001_1.json"
+    },
+    {
+      "origin_name": "CRDC",
+      "origin_id": "CRDC0003",
+      "origin_version": "3.2",
+      "description": "CRDC ICD-O morphology valueset reference — full EDP PV multiset vs STS snapshot",
+      "expected_pv_values_file": "data/edp_expected_pv/CRDC0003_3.2.json",
+      "allow_duplicate_pv_values": true
     }
   ]
 }

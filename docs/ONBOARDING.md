@@ -253,11 +253,27 @@ Manual tests complement **generated** EDP smoke coverage (discovery via ``STS_ED
   - No duplicate PV ``value`` strings on EDP response
 - **`edp_custom_cde` assertions:**
   - Same EDP GET/listing checks for **non-caDSR** ``origin_name`` (e.g. ``CRDC``)
-  - PV multiset **equals** ``expected_pv_values`` in JSON and/or Enum labels from ``yaml_ref`` (`file` + `property` under `data/data-models-yaml/`)
+  - PV multiset **equals** ``expected_pv_values`` in JSON, ``expected_pv_values_file`` snapshot under `data/edp_expected_pv/`, and/or Enum labels from ``yaml_ref`` (`file` + `property` under `data/data-models-yaml/`)
   - Does **not** call ``cde-pvs`` (custom authorities are EDP-only)
 - **Case files:**
   - `data/edp_cadsr_parity_cases.json` — pinned caDSR triples; ``compare_cde_pvs`` defaults true
-  - `data/edp_custom_cde_cases.json` — pinned custom triples + expected PVs or ``yaml_ref``
+  - `data/edp_custom_cde_cases.json` — pinned custom triples + expected PVs, snapshot file ref, or ``yaml_ref``
+  - `data/edp_expected_pv/*.json` — full PV label snapshots (sorted arrays); regenerate with `scripts/generate_edp_pv_snapshot.py`
+- **CRDC custom EDP cases (QA):**
+
+| origin_id | origin_version | Defining label | PV count | Expected source |
+|-----------|----------------|----------------|----------|-----------------|
+| CRDC0002 | 1 | obib value set reference | 128 | inline ``expected_pv_values`` |
+| CRDC0001 | 1 | uberon value set reference | 12,854 | ``data/edp_expected_pv/CRDC0001_1.json`` |
+| CRDC0003 | 3.2 | icdo valueset reference | 1,183 | ``data/edp_expected_pv/CRDC0003_3.2.json`` (``allow_duplicate_pv_values``: ICD-O may repeat display labels) |
+
+- **Regenerate PV snapshots** (after MDB value-set refresh):
+
+```bash
+python scripts/generate_edp_pv_snapshot.py --origin-id CRDC0001 --origin-version 1
+python scripts/generate_edp_pv_snapshot.py --origin-id CRDC0003 --origin-version 3.2
+```
+
 - **Version strings:** Use exact MDB pins (e.g. ``2.0`` not ``2.00``); mismatch yields empty ``cde-pvs`` or EDP **404**.
 - **Run commands:**
   - `pytest tests/test_manual/test_edp_custom_cdes.py -m edp_cadsr_parity -v`
