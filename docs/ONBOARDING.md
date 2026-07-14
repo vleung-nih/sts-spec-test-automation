@@ -280,6 +280,14 @@ python scripts/generate_edp_pv_snapshot.py --origin-id CRDC0003 --origin-version
   - `pytest tests/test_manual/test_edp_custom_cdes.py -m edp_custom_cde -v`
   - `pytest tests/test_manual/test_edp_custom_cdes.py -m "edp_cadsr_parity or edp_custom_cde" -v`
 
+### 3.7.3 Oversized skip/limit bounds (reference)
+
+- **Test file:** `tests/test_manual/test_skip_limit_upper_bound.py`
+- **Marker:** `skip_limit_bounds`
+- **What it checks:** Ticket-scale integer `skip` / `limit` on every discovered paginated list path (from generated `__bad_query_skip` cases) must return **422** with a detail naming the bad param — **not 500**. Excludes `/models/`, `/model/{handle}/versions`, and `/count` routes.
+- **Note:** Expected to fail on STS until the API validates upper bounds; then it is a regression guard.
+- **Run command:** `pytest tests/test_manual/test_skip_limit_upper_bound.py -m skip_limit_bounds -v`
+
 ### 3.8 Term-by-value (YAML → STS)
 
 #### 3.8.1 What this is
