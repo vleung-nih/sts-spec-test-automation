@@ -25,16 +25,22 @@ This test GETs every discovered in-scope skip/limit endpoint once with a ticket-
 2. MIXED invalid skip+limit (``skip_limit_multi_error``)
 ================================================================================
 
-Regression for a bug where, when ``skip`` and ``limit`` were both invalid but of
-DIFFERENT error classes (e.g. ``skip=-1`` + ``limit=<huge>``, or ``skip=<huge>`` +
-``limit=abc123``), the 422 ``detail`` dropped one error (``value_too_large``) and
-reported only one param. The fix returns a detail entry per bad param.
+Regression for two related bugs in the 422 ``detail`` for invalid skip+limit:
 
-This test sends both cross-class combos to every skip/limit route and asserts 422
-with a detail entry naming BOTH ``skip`` and ``limit``. Unlike the oversized test,
-this INCLUDES ``/models/`` and ``/model/{handle}/versions`` (they support skip/limit
-and report both errors); only routes without integer skip/limit are excluded, which
-happens naturally since targets come from generated ``__bad_query_skip`` cases.
+- **Dropped error:** when ``skip`` and ``limit`` were both invalid but of DIFFERENT
+  error classes (e.g. ``skip=-1`` + ``limit=<huge>``, or ``skip=<huge>`` +
+  ``limit=abc123``), the detail dropped one error (``value_too_large``) and reported
+  only one param.
+- **Duplicated error:** ``skip=abc123`` + ``limit=xyz567`` returned each param's
+  error twice (four entries instead of two).
+
+This test sends three combos (two cross-class, plus the ``both_nonint`` ticket repro)
+to every skip/limit route and asserts 422 with a detail entry naming BOTH ``skip``
+and ``limit`` EACH EXACTLY ONCE (no dropped, no duplicated errors). Unlike the
+oversized test, this INCLUDES ``/models/`` and ``/model/{handle}/versions`` (they
+support skip/limit and report both errors); only routes without integer skip/limit
+are excluded, which happens naturally since targets come from generated
+``__bad_query_skip`` cases.
 
 ================================================================================
 WHERE THE PATHS COME FROM
@@ -253,11 +259,13 @@ def test_oversized_skip_or_limit_returns_422(api_client: APIClient):
 # the value_too_large error was previously dropped from the 422 detail.
 NONINT_LIMIT = "abc123"
 
-# Two cross-class combos from the ticket. Each combines two DIFFERENT invalid
-# classes so a single-error response would drop one of them.
+# Combos where both skip and limit are invalid. The first two are cross-class
+# (different invalid types) so a single-error response would drop one of them.
+# ``both_nonint`` is the exact ticket reproduction for the duplicated-detail bug.
 _MIXED_COMBOS: list[tuple[str, dict[str, Any]]] = [
     ("neg_skip+huge_limit", {"skip": "-1", "limit": HUGE_LIMIT}),
     ("huge_skip+nonint_limit", {"skip": HUGE_SKIP, "limit": NONINT_LIMIT}),
+    ("both_nonint", {"skip": "abc123", "limit": "xyz567"}),
 ]
 
 
@@ -318,13 +326,33 @@ def _detail_param_set(detail: Any) -> set[str]:
     return found
 
 
+def _detail_param_list(detail: Any) -> list[str]:
+    """
+    Like _detail_param_set but keeps duplicates, in order.
+
+    Returns the last element of each error object's ``loc`` (the param name),
+    lowercased. Used to detect duplicated detail entries for the same param.
+    """
+    names: list[str] = []
+    if not isinstance(detail, list):
+        return names
+    for item in detail:
+        if not isinstance(item, dict):
+            continue
+        loc = item.get("loc")
+        if isinstance(loc, (list, tuple)) and loc:
+            names.append(str(loc[-1]).lower())
+    return names
+
+
 def _probe_multi_error(
     api_client: APIClient, path: str, label: str, params: dict[str, Any]
 ) -> str | None:
     """
     Send one mixed-invalid skip+limit GET. Return a failure message, or None on pass.
 
-    Passes only when status is 422 and the detail list names BOTH skip and limit.
+    Passes only when status is 422 and the detail list names BOTH skip and limit,
+    each exactly once (no dropped or duplicated error entries).
     """
     url = full_url(api_client, path, params)
     print(f"\n--- multi_error {label}: {path} ---")
@@ -364,6 +392,15 @@ def _probe_multi_error(
             f"params_seen={sorted(params_seen)} detail={detail!r}"
         )
 
+    seen_list = _detail_param_list(detail)
+    dupes = sorted({p for p in seen_list if seen_list.count(p) > 1})
+    if dupes:
+        return (
+            f"STS GET {url} ({label}): 422 detail duplicated error(s) for "
+            f"{dupes}; each bad param must appear once. "
+            f"loc_params={seen_list} detail={detail!r}"
+        )
+
     logger.info(
         "PASS skip_limit_multi_error path=%s combo=%s status=%s",
         path,
@@ -378,8 +415,9 @@ def test_mixed_invalid_skip_limit_reports_each_param(api_client: APIClient):
     """
     Mixed invalid skip+limit on all skip/limit paths must yield 422 naming BOTH params.
 
-    One pytest case: for every discovered path, send both cross-class combos, then
-    fail once with an aggregated report if any response drops a param error.
+    One pytest case: for every discovered path, send all combos in _MIXED_COMBOS,
+    then fail once with an aggregated report if any response drops or duplicates a
+    param error.
     """
     paths = _collect_multi_error_paths()
     if not paths:

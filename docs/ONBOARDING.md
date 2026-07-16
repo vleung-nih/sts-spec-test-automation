@@ -293,8 +293,8 @@ python scripts/generate_edp_pv_snapshot.py --origin-id CRDC0003 --origin-version
 
 - **Test file:** `tests/test_manual/test_skip_limit_upper_bound.py`
 - **Marker:** `skip_limit_multi_error`
-- **What it checks:** When `skip` and `limit` are both invalid but of different error classes (`skip=-1` + huge `limit`, and huge `skip` + non-integer `limit`), every discovered skip/limit path must return **422** with a detail entry naming **both** params — guarding the fix for the dropped-`value_too_large` bug. Unlike the oversized test, this **includes** `/models/` and `/model/{handle}/versions`.
-- **Note:** Expected to pass on QA (fix confirmed); fails if a param error is silently dropped again.
+- **What it checks:** When `skip` and `limit` are both invalid, every discovered skip/limit path must return **422** with a detail entry naming **both** params, **each exactly once**. Covers three combos: `skip=-1` + huge `limit`, huge `skip` + non-integer `limit`, and the `skip=abc123` + `limit=xyz567` ticket repro. Guards both the dropped-`value_too_large` bug and the duplicated-detail bug. Unlike the oversized test, this **includes** `/models/` and `/model/{handle}/versions`.
+- **Note:** Expected to pass on QA (fixes confirmed); fails if a param error is silently dropped or duplicated again.
 - **Run command:** `pytest tests/test_manual/test_skip_limit_upper_bound.py -m skip_limit_multi_error -v`
 
 ### 3.8 Term-by-value (YAML → STS)
