@@ -289,6 +289,14 @@ python scripts/generate_edp_pv_snapshot.py --origin-id CRDC0003 --origin-version
 - **Note:** Expected to fail on STS until the API validates upper bounds; then it is a regression guard.
 - **Run command:** `pytest tests/test_manual/test_skip_limit_upper_bound.py -m skip_limit_bounds -v`
 
+### 3.7.4 Mixed invalid skip/limit multi-error (reference)
+
+- **Test file:** `tests/test_manual/test_skip_limit_upper_bound.py`
+- **Marker:** `skip_limit_multi_error`
+- **What it checks:** When `skip` and `limit` are both invalid but of different error classes (`skip=-1` + huge `limit`, and huge `skip` + non-integer `limit`), every discovered skip/limit path must return **422** with a detail entry naming **both** params — guarding the fix for the dropped-`value_too_large` bug. Unlike the oversized test, this **includes** `/models/` and `/model/{handle}/versions`.
+- **Note:** Expected to pass on QA (fix confirmed); fails if a param error is silently dropped again.
+- **Run command:** `pytest tests/test_manual/test_skip_limit_upper_bound.py -m skip_limit_multi_error -v`
+
 ### 3.8 Term-by-value (YAML → STS)
 
 #### 3.8.1 What this is
