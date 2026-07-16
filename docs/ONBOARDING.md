@@ -151,6 +151,7 @@ Skip this subsection unless you are debugging generated cases or report rows for
   - **Default expectation:** For GETs with integer `skip` that document **404**, expect `404` + `expected_json: {"detail": "Not found."}` with `negative: true`.
   - **Exceptions (always emitted when route has `skip`):**  
     - `GET .../terms/cde-pvs/{id}/{version}/pvs` expects `200` + `[]` (`expected_json`).  
+    - `GET .../edps/{originName}/{originId}/{originVersion}/properties` expects `200` + `[]` (`expected_json`).  
     - `GET .../terms/model-pvs/{model}/{property}` expects `200` + **non-empty** JSON array where each object has `permissibleValues: []` (`skip_oob_assert: model_pvs_empty_permissible_values`).
   - **Exception note:** For model-pvs skip-OOB, top-level `[]` is treated as failure and flagged for investigation.
   - **Negative flag:** Exception cases use `negative: false`.

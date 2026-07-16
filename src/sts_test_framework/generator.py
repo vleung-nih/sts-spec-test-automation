@@ -17,9 +17,10 @@ Special case — CDE PVs by id+version (invalid path params):
 
 Special case — skip past end (huge ``skip`` query param):
     Default ``__skip_oob`` expects **404** + ``{"detail": "Not found."}``. Exceptions:
-    ``GET .../terms/cde-pvs/.../pvs`` expects **200** + ``[]``; ``GET .../terms/model-pvs/...``
-    expects **200** + **non-empty** array of objects with empty ``permissibleValues``; see
-    ``_is_cde_pvs_by_id_pvs_path``, ``_is_terms_model_pvs_path``.
+    ``GET .../terms/cde-pvs/.../pvs`` and ``GET .../edps/.../properties`` expect **200** +
+    ``[]``; ``GET .../terms/model-pvs/...`` expects **200** + **non-empty** array of objects
+    with empty ``permissibleValues``; see ``_is_cde_pvs_by_id_pvs_path``,
+    ``_is_edp_properties_path``, ``_is_terms_model_pvs_path``.
 """
 from urllib.parse import quote
 
@@ -274,13 +275,14 @@ def generate_cases(
                         "response_schema_ref": None,
                     })
 
-            # Huge skip (past end): default 404 + detail; /terms/model-pvs and /terms/cde-pvs/.../pvs → 200
+            # Huge skip (past end): default 404 + detail; cde-pvs / edp properties / model-pvs → 200
             if include_negative:
                 skip_limit_names_oob = _integer_skip_limit_names(query_params)
                 if "skip" in skip_limit_names_oob and (
                     404 in response_codes
                     or _is_terms_model_pvs_path(path_template)
                     or _is_cde_pvs_by_id_pvs_path(path_template)
+                    or _is_edp_properties_path(path_template)
                 ):
                     base_oob = dict(query_vals) if query_vals else {}
                     oob_params = {**base_oob, "skip": SKIP_OOB}
@@ -296,6 +298,16 @@ def generate_cases(
                             **oob_common,
                             "expected_status": 200,
                             "summary": f"{summary} (skip past end: cde-pvs returns [])",
+                            "negative": False,
+                            "expected_json": [],
+                        })
+                    elif _is_edp_properties_path(path_template):
+                        cases.append({
+                            **oob_common,
+                            "expected_status": 200,
+                            "summary": (
+                                f"{summary} (skip past end: edp properties returns [])"
+                            ),
                             "negative": False,
                             "expected_json": [],
                         })
@@ -384,6 +396,21 @@ def _is_cde_pvs_by_id_pvs_path(path_template: str) -> bool:
     """
     p = path_template.rstrip("/")
     return "terms/cde-pvs" in p and p.endswith("/pvs")
+
+
+def _is_edp_properties_path(path_template: str) -> bool:
+    """
+    True for GET ``.../edps/{originName}/{originId}/{originVersion}/properties``.
+
+    With huge ``skip`` on a valid EDP, STS returns **200** + ``[]`` (not 404).
+    Invalid EDP triples still return **404** (invalid-path negatives unchanged).
+    """
+    p = path_template.rstrip("/")
+    return (
+        p.endswith("/properties")
+        and "/edps/" in p
+        and "{originId}" in path_template
+    )
 
 
 def _is_terms_model_pvs_path(path_template: str) -> bool:
