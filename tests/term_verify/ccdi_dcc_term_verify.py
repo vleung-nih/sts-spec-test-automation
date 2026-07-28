@@ -174,7 +174,7 @@ def _fetch_enum_values_from_url(url: str, cache: dict[str, list[str]]) -> list[s
 class CCDIDCCTermVerify(TermVerifyPipeline):
     model_handle = "CCDI-DCC"
     csv_prefix = "ccdi_dcc"
-    default_yaml_filename = "ccdi-dcc-model-props-4.yml"
+    default_yaml_filename = "ccdi-dcc-model-props-5.yml"
     report_subdir = "CCDI-DCC"
 
     def parse_yaml(self, path: Path) -> list[tuple[str, str, list[str]]]:
