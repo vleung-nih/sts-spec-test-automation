@@ -297,6 +297,15 @@ python scripts/generate_edp_pv_snapshot.py --origin-id CRDC0003 --origin-version
 - **Note:** Expected to pass on QA (fixes confirmed); fails if a param error is silently dropped or duplicated again.
 - **Run command:** `pytest tests/test_manual/test_skip_limit_upper_bound.py -m skip_limit_multi_error -v`
 
+### 3.7.5 Model release-version baseline (reference)
+
+- **Test file:** `tests/test_manual/test_model_release_versions_baseline.py`
+- **Marker:** `model_release_versions`
+- **Baseline file:** `data/model_release_versions_baseline.json`
+- **What it checks:** One test walks every baseline model handle: each must still appear in `GET /models/`, and every **release** version string (no hyphen) in the baseline must still appear in `GET /model/{handle}/versions`. Failures are accumulated and reported together. New versions/models are allowed (subset assertion: baseline ⊆ live). Pre-releases are ignored.
+- **Regenerate baseline:** `python scripts/generate_model_release_versions_baseline.py` (uses `STS_BASE_URL`; default QA). Re-run when you intentionally ratchet the floor after new releases, or when targeting stage/prod.
+- **Run command:** `pytest tests/test_manual/test_model_release_versions_baseline.py -m model_release_versions -v`
+
 ### 3.8 Term-by-value (YAML → STS)
 
 #### 3.8.1 What this is

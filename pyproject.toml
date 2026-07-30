@@ -45,4 +45,5 @@ markers = [
     "edp_edps_unique: GET /edps/{origin} must list each EDP (origin_id, origin_version) once; no duplicate defining terms (manual; pytest -m edp_edps_unique)",
     "skip_limit_bounds: Oversized skip/limit must return 422 not 500 (manual; pytest -m skip_limit_bounds)",
     "skip_limit_multi_error: Mixed invalid skip+limit must return 422 with a detail entry for each bad param, exactly once (no dropped or duplicated errors) (manual; pytest -m skip_limit_multi_error)",
+    "model_release_versions: Baseline release versions from GET /model/{handle}/versions must remain present (manual; pytest -m model_release_versions)",
 ]
