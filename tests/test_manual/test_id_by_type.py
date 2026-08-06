@@ -55,7 +55,8 @@ ID_BY_TYPE = [
     ("Tag", "5kc0G6"),
     ("Concept", "hXZyty"),
     ("Relationship", "ueqz5Y"),
-    ("ValueSet", "QGBE31"),
+    # Null-CDE ValueSet (handle 16476366|1); re-resolve via Neo4j if nanoid churns
+    ("ValueSet", "Dn080X"),
     ("Origin", "oHBbMJ"),
 ]
 

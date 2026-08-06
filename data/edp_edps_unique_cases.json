@@ -2,5 +2,51 @@
   "origins": [
     "caDSR",
     "CRDC"
-  ]
+  ],
+  "allowed_duplicate_edps": {
+    "caDSR": [
+      {
+        "origin_id": "11387114",
+        "origin_version": "1",
+        "value": "Electronic Data File Compression Type",
+        "reason": "DATATEAM term-dedup residual; unique under (origin_name, origin_id, origin_version, value) but listed twice by /edps listing key (origin_id, origin_version)"
+      },
+      {
+        "origin_id": "11529028",
+        "origin_version": "1.00",
+        "value": "Sequencing Library Design Description Text",
+        "reason": "DATATEAM term-dedup residual; unique under (origin_name, origin_id, origin_version, value) but listed twice by /edps listing key (origin_id, origin_version)"
+      },
+      {
+        "origin_id": "14616427",
+        "origin_version": "1.00",
+        "value": "Image Acquisition Resonant Nucleus Code",
+        "reason": "DATATEAM term-dedup residual; unique under (origin_name, origin_id, origin_version, value) but listed twice by /edps listing key (origin_id, origin_version)"
+      },
+      {
+        "origin_id": "14714127",
+        "origin_version": "1.00",
+        "value": "Diagnosis Disease or Disorder Text",
+        "reason": "DATATEAM term-dedup residual; unique under (origin_name, origin_id, origin_version, value) but listed twice by /edps listing key (origin_id, origin_version)"
+      },
+      {
+        "origin_id": "14927178",
+        "origin_version": "1",
+        "value": "Person Gender Identity Type",
+        "reason": "DATATEAM term-dedup residual; unique under (origin_name, origin_id, origin_version, value) but listed twice by /edps listing key (origin_id, origin_version)"
+      },
+      {
+        "origin_id": "15063791",
+        "origin_version": "1",
+        "value": "Molecular Specimen Analyte Preparation Type",
+        "reason": "DATATEAM term-dedup residual; unique under (origin_name, origin_id, origin_version, value) but listed twice by /edps listing key (origin_id, origin_version)"
+      },
+      {
+        "origin_id": "2413274",
+        "origin_version": "2.10",
+        "value": "Manufacturer's Model Name",
+        "reason": "DATATEAM term-dedup residual; unique under (origin_name, origin_id, origin_version, value) but listed twice by /edps listing key (origin_id, origin_version)"
+      }
+    ]
+  }
 }

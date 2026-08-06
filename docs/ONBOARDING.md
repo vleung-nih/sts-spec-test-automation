@@ -281,6 +281,15 @@ python scripts/generate_edp_pv_snapshot.py --origin-id CRDC0003 --origin-version
   - `pytest tests/test_manual/test_edp_custom_cdes.py -m edp_custom_cde -v`
   - `pytest tests/test_manual/test_edp_custom_cdes.py -m "edp_cadsr_parity or edp_custom_cde" -v`
 
+#### EDP listing uniqueness (`edp_edps_unique`)
+
+- **Test file:** `tests/test_manual/test_edp_edps_no_duplicates.py`
+- **Marker:** `edp_edps_unique`
+- **What it checks:** ``GET /edps/{origin}`` has no unexpected duplicate ``(origin_id, origin_version)`` rows (listing key). MDB term-node uniqueness is stricter — ``(origin_name, origin_id, origin_version, value)`` — so a few caDSR residuals can appear twice in the listing without being redundant term nodes.
+- **Allowlist:** `data/edp_edps_unique_cases.json` → ``allowed_duplicate_edps`` (currently seven caDSR triples). Allowlisted residuals are reported but do not fail; any new duplicate still fails. Stale allowlist entries (no longer duplicated) print a warning only.
+- **CRDC:** must remain fully unique (no allowlisted residuals).
+- **Run command:** `pytest tests/test_manual/test_edp_edps_no_duplicates.py -m edp_edps_unique -v`
+
 ### 3.7.3 Oversized skip/limit bounds (reference)
 
 - **Test file:** `tests/test_manual/test_skip_limit_upper_bound.py`
