@@ -40,7 +40,7 @@ markers = [
     "cadsr_draft_new: DRAFT NEW: longName vs CDEFullName + PV⊆cde-pvs ncit rows; optional model-pvs PV subset (manual; pytest -m cadsr_draft_new)",
     "cadsr_released_cde_pvs: RELEASED CDE caDSR PermissibleValues must match STS cde-pvs (manual; pytest -m cadsr_released_cde_pvs)",
     "cadsr_multi_concept_pv: caDSR special PVs (multi-Concept or URL + YAML enum); STS null ncit + empty synonyms; pytest -m cadsr_multi_concept_pv",
-    "edp_cadsr_parity: caDSR EDP /edp/.../terms PV multiset must match cde-pvs (manual; pytest -m edp_cadsr_parity)",
+    "edp_cadsr_parity: caDSR EDP /edp/.../terms unique PV set must match each cde-pvs wrapper (manual; pytest -m edp_cadsr_parity)",
     "edp_custom_cde: Custom-origin EDP PV multiset must match expected or YAML enum (manual; pytest -m edp_custom_cde)",
     "edp_edps_unique: GET /edps/{origin} must list each EDP (origin_id, origin_version) once; no duplicate defining terms (manual; pytest -m edp_edps_unique)",
     "skip_limit_bounds: Oversized skip/limit must return 422 not 500 (manual; pytest -m skip_limit_bounds)",

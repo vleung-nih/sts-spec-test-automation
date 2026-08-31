@@ -11,8 +11,10 @@ tests pin real ``origin_name`` / ``origin_id`` / ``origin_version`` triples and 
 
 Two families:
 
-1. ``edp_cadsr_parity`` — caDSR EDP PV ``value`` multiset must **equal** v2
-   ``GET /terms/cde-pvs/{id}/{version}/pvs`` PV ``value`` multiset (NCIt/synonyms ignored).
+1. ``edp_cadsr_parity`` — caDSR EDP PV ``value`` **set** must **equal** each v2
+   ``GET /terms/cde-pvs/{id}/{version}/pvs`` wrapper’s PV ``value`` set (NCIt/synonyms
+   ignored). Multiple ``CDEFullName`` wrappers may repeat the same labels; do not
+   concatenate wrappers as a multiset.
 2. ``edp_custom_cde`` — non-caDSR origins; PV multiset must match ``expected_pv_values``
    in JSON, ``expected_pv_values_file`` snapshot, and/or Enum labels from a vendored YAML property (``yaml_ref``).
 
@@ -126,21 +128,30 @@ def _pv_values_from_edp_terms(body: object) -> list[str]:
     return out
 
 
-def _pv_values_from_cde_pvs(body: object) -> list[str]:
-    """Pull PV labels from cde-pvs CDEPermissibleValues[] (ignores NCIt codes and synonyms)."""
-    if not isinstance(body, list):
+def _pv_values_from_cde_pvs_wrapper(row: dict[str, Any]) -> list[str]:
+    """PV labels from one cde-pvs CDEPermissibleValues object (ignores NCIt/synonyms)."""
+    pvs = row.get("permissibleValues")
+    if not isinstance(pvs, list):
         return []
     out: list[str] = []
+    for pv in pvs:
+        if isinstance(pv, dict) and pv.get("value") is not None:
+            out.append(str(pv["value"]))
+    return out
+
+
+def _cde_pvs_wrappers(body: object) -> list[tuple[str | None, list[str]]]:
+    """Each cde-pvs wrapper’s CDEFullName and PV value list."""
+    if not isinstance(body, list):
+        return []
+    wrappers: list[tuple[str | None, list[str]]] = []
     for row in body:
         if not isinstance(row, dict):
             continue
-        pvs = row.get("permissibleValues")
-        if not isinstance(pvs, list):
-            continue
-        for pv in pvs:
-            if isinstance(pv, dict) and pv.get("value") is not None:
-                out.append(str(pv["value"]))
-    return out
+        name = row.get("CDEFullName")
+        full_name = str(name) if name is not None else None
+        wrappers.append((full_name, _pv_values_from_cde_pvs_wrapper(row)))
+    return wrappers
 
 
 def _enum_values_from_yaml(yaml_file: str, prop_handle: str) -> list[str]:
@@ -278,13 +289,14 @@ def _assert_edp_listed_in_edps(
 @pytest.mark.parametrize("case", _load_cadsr_parity_cases(), ids=_case_id)
 def test_edp_cadsr_parity_matches_cde_pvs(api_client: APIClient, case: dict[str, Any]):
     """
-    caDSR regression: EDP and cde-pvs must return the same set of PV labels.
+    caDSR regression: EDP unique PV labels must equal each cde-pvs wrapper’s PV set.
 
     Steps per JSON case:
     1. GET /edp/caDSR/{id}/{version}/terms — collect Term.value strings
     2. GET /edps/caDSR (paginated) — confirm the CDE is listed as an EDP defining term
-    3. GET /terms/cde-pvs/{id}/{version}/pvs — collect permissibleValues[].value strings
-    4. Assert both lists match as multisets (order ignored; duplicates counted)
+    3. GET /terms/cde-pvs/{id}/{version}/pvs — collect each wrapper’s PV value strings
+    4. Assert every wrapper’s unique labels equal the EDP unique set (order ignored).
+       Multiple CDEFullName wrappers may repeat the same list; do not flatten as a multiset.
 
     Version strings must match MDB exactly (e.g. 2.0, not 2.00).
     """
@@ -314,8 +326,9 @@ def test_edp_cadsr_parity_matches_cde_pvs(api_client: APIClient, case: dict[str,
     assert len(edp_body) > 0, f"STS edp {edp_url}: expected non-empty Term[]"
 
     edp_values = _pv_values_from_edp_terms(edp_body)
-    print(f"  EDP permissibleValues count={len(edp_values)} (multiset)")
+    print(f"  EDP permissibleValues count={len(edp_values)} (unique set)")
     _assert_no_duplicate_values(edp_values, "edp")
+    edp_set = set(edp_values)
 
     # --- Step 2: confirm this CDE appears in the EDP browse/list endpoint ---
     _assert_edp_listed_in_edps(api_client, origin_name, origin_id, origin_version)
@@ -335,15 +348,23 @@ def test_edp_cadsr_parity_matches_cde_pvs(api_client: APIClient, case: dict[str,
             f"STS cde-pvs {cde_url}: expected JSON array, got {type(cde_body).__name__}"
         )
         assert len(cde_body) > 0, f"STS cde-pvs {cde_url}: expected non-empty response"
-        cde_values = _pv_values_from_cde_pvs(cde_body)
-        print(f"  cde-pvs permissibleValues count={len(cde_values)} (multiset)")
-        # --- Step 4: PV label multisets must match (NCIt/synonyms are not compared) ---
-        assert Counter(edp_values) == Counter(cde_values), (
-            f"EDP vs cde-pvs PV value multiset mismatch for {case_label}\n"
-            f"  EDP-only: {sorted(set(edp_values) - set(cde_values))!r}\n"
-            f"  cde-pvs-only: {sorted(set(cde_values) - set(edp_values))!r}"
-        )
-        print("  cde-pvs parity: EDP PV multiset == cde-pvs PV multiset OK")
+        wrappers = _cde_pvs_wrappers(cde_body)
+        assert wrappers, f"STS cde-pvs {cde_url}: expected at least one CDEPermissibleValues wrapper"
+        print(f"  cde-pvs wrapper count={len(wrappers)}")
+        # --- Step 4: each wrapper’s unique PV labels must equal EDP (NCIt/synonyms ignored) ---
+        for wrap_i, (full_name, wrap_values) in enumerate(wrappers, start=1):
+            wrap_set = set(wrap_values)
+            print(
+                f"  cde-pvs wrapper[{wrap_i}] CDEFullName={full_name!r} "
+                f"pv_count={len(wrap_values)} unique={len(wrap_set)}"
+            )
+            assert wrap_set == edp_set, (
+                f"EDP vs cde-pvs wrapper[{wrap_i}] PV set mismatch for {case_label} "
+                f"(CDEFullName={full_name!r})\n"
+                f"  EDP-only: {sorted(edp_set - wrap_set)!r}\n"
+                f"  wrapper-only: {sorted(wrap_set - edp_set)!r}"
+            )
+        print("  cde-pvs parity: each wrapper PV set == EDP unique set OK")
 
     print(f"  PASS {case_label}\n")
     logger.info("PASS edp_cadsr_parity %s edp_rows=%s", case_label, len(edp_values))

@@ -243,13 +243,13 @@ Manual caDSR `GET /DataElement/{publicId}` calls retry transient failures (conne
 
 Skip unless you run or debug EDP manual modules.
 
-Manual tests complement **generated** EDP smoke coverage (discovery via ``STS_EDP_ORIGIN_NAME``; see [§6.2](#62-changing-what-gets-discovered)). Generated cases check HTTP status and pagination; manual cases pin **origin/id/version** triples and assert **PV `value` multiset** parity.
+Manual tests complement **generated** EDP smoke coverage (discovery via ``STS_EDP_ORIGIN_NAME``; see [§6.2](#62-changing-what-gets-discovered)). Generated cases check HTTP status and pagination; manual cases pin **origin/id/version** triples and assert **PV `value`** parity (unique labels vs each cde-pvs wrapper for caDSR; multiset vs pinned/YAML for custom CDEs).
 
 - **Test file:** `tests/test_manual/test_edp_custom_cdes.py`
 - **Markers:** `edp_cadsr_parity`, `edp_custom_cde`
 - **`edp_cadsr_parity` assertions:**
   - ``GET /edp/{origin_name}/{origin_id}/{origin_version}/terms`` returns **200** with non-empty ``Term[]``
-  - PV ``value`` multiset **equals** ``GET /terms/cde-pvs/{origin_id}/{origin_version}/pvs`` PV ``value`` multiset (all rows; NCIt/synonyms ignored)
+  - Each ``GET /terms/cde-pvs/{origin_id}/{origin_version}/pvs`` wrapper’s PV ``value`` **set** equals the EDP unique PV ``value`` set (NCIt/synonyms ignored). Multiple ``CDEFullName`` wrappers may repeat the same labels; do not concatenate wrappers as a multiset.
   - Defining term appears in ``GET /edps/{origin_name}`` with matching ``origin_id`` + ``origin_version``
   - No duplicate PV ``value`` strings on EDP response
 - **`edp_custom_cde` assertions:**
