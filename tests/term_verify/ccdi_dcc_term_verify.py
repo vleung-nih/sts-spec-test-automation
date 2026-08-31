@@ -97,11 +97,35 @@ MODEL_LABEL = "CCDI-DCC"
 # ("submitted_diagnosis", "Palmar/plantar type fibromatosis"),
 # ("submitted_diagnosis", "Round cell sarcoma, NOS"),
 # ("tumor_spatial_extent", "Not Applicable"),
+#
+# Do NOT allowlist ("dose_unit", "PA"): open STS ticket — PA is collapsed with
+# lowercase "pa" and case is not preserved on load. Once that is fixed, PA
+# must be loaded and term-by-value should return 200. Keep the 404 as
+# unexpected until the ticket is closed.
 
 KNOWN_MISSING_IN_STS_DB: frozenset[tuple[str, str]] = frozenset(
     {
-        # Still 404 on CCDI-DCC 2.0.0; absent from Memgraph (usage_count 0).
-        ("dose_unit", "PA"),
+        # New YAML enums in 2.0.0 extract; STS 404; confirmed absent in DCC Memgraph
+        # 2026-08-31 (diagnosis.diagnosis / diagnosis.submitted_diagnosis / file_type).
+        ("file_type", "ubam"),
+        ("diagnosis", "Adnexal adenocarcinoma, NOS"),
+        ("diagnosis", "Askin tumor"),
+        ("diagnosis", "Embryonal adenoma"),
+        ("diagnosis", "Insulinoma, NOS"),
+        ("diagnosis", "Mesothelioma, malignant"),
+        ("diagnosis", "Mucoepidermoid tumor"),
+        ("diagnosis", "Oxyphilic adenocarcinoma"),
+        ("diagnosis", "Papillary urothelial neoplasm of low malignant potential"),
+        ("diagnosis", "Spindle cell nevus, NOS"),
+        ("submitted_diagnosis", "Adnexal adenocarcinoma, NOS"),
+        ("submitted_diagnosis", "Askin tumor"),
+        ("submitted_diagnosis", "Embryonal adenoma"),
+        ("submitted_diagnosis", "Insulinoma, NOS"),
+        ("submitted_diagnosis", "Mesothelioma, malignant"),
+        ("submitted_diagnosis", "Mucoepidermoid tumor"),
+        ("submitted_diagnosis", "Oxyphilic adenocarcinoma"),
+        ("submitted_diagnosis", "Papillary urothelial neoplasm of low malignant potential"),
+        ("submitted_diagnosis", "Spindle cell nevus, NOS"),
     }
 )
 
