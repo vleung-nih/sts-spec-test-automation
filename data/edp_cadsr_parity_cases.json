@@ -1,0 +1,25 @@
+{
+  "cases": [
+    {
+      "origin_name": "caDSR",
+      "origin_id": "7572817",
+      "origin_version": "2.0",
+      "description": "Sex at birth: EDP PV values must equal cde-pvs PV values",
+      "compare_cde_pvs": true
+    },
+    {
+      "origin_name": "caDSR",
+      "origin_id": "12445832",
+      "origin_version": "1.00",
+      "description": "RELEASED CDE: Specimen Material Category — EDP vs cde-pvs PV parity",
+      "compare_cde_pvs": true
+    },
+    {
+      "origin_name": "caDSR",
+      "origin_id": "6824805",
+      "origin_version": "5.00",
+      "description": "RELEASED CDE: unit of measure — EDP vs cde-pvs PV parity",
+      "compare_cde_pvs": true
+    }
+  ]
+}

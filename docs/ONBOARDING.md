@@ -9,7 +9,7 @@ This document explains what the framework does, how it works, how to run it, and
 - **Changing or debugging tests:** [§6](#6-how-to-add-or-change-tests), [§9](#9-troubleshooting-and-faq).
 - **Generator internals / edge cases:** [§3.3.1](#331-advanced-pagination-skip-oob-and-reporting-quirks), [§5.7](#57-what-happens-when-you-run-under-the-hood).
 
-Optional deep dives: [pagination, skip-OOB, reporting](#331-advanced-pagination-skip-oob-and-reporting-quirks) · [caDSR & legacy CDE-PVS manual tests](#371-cadsr-and-legacy-cde-pvs-reference)
+Optional deep dives: [pagination, skip-OOB, reporting](#331-advanced-pagination-skip-oob-and-reporting-quirks) · [caDSR & legacy CDE-PVS manual tests](#371-cadsr-and-legacy-cde-pvs-reference) · [EDP & custom CDE manual tests](#372-edp-and-custom-cde-reference)
 
 ---
 
@@ -31,7 +31,7 @@ Optional deep dives: [pagination, skip-OOB, reporting](#331-advanced-pagination-
 
 **STS** stands for **Simple Terminology Server**. It is a web API that exposes data models (e.g. for cancer research) in a consistent way. The data is stored in a graph database (Neo4j) and described as **nodes**, **properties**, **terms**, and **tags**. The API lets clients ask things like: “What models exist?”, “What nodes does this model have?”, “What are the allowed values (terms) for this property?”.
 
-The **v2 API** is the second version of this interface. It is **read-only**: all endpoints use the **GET** method. There is no login in the spec (no API keys or tokens for normal use). The API is documented in an **OpenAPI** specification file (`spec/v2-4-0.json`), which lists every URL path, its parameters, and the expected response shapes.
+The **v2 API** is the second version of this interface. It is **read-only**: all endpoints use the **GET** method. There is no login in the spec (no API keys or tokens for normal use). The API is documented in an **OpenAPI** specification file (`spec/v2-5-0.json`), which lists every URL path, its parameters, and the expected response shapes.
 
 **Why we test it:** Before releasing changes to STS, we need to confirm that every documented endpoint behaves as the spec says (right status codes, right response shape). This framework automates that checking.
 
@@ -41,7 +41,7 @@ The **v2 API** is the second version of this interface. It is **read-only**: all
 
 At a high level, the framework does four things:
 
-1. **Reads the API contract** – It loads the OpenAPI spec (`spec/v2-4-0.json`) so it knows every endpoint, its parameters, and expected responses.
+1. **Reads the API contract** – It loads the OpenAPI spec (`spec/v2-5-0.json`) so it knows every endpoint, its parameters, and expected responses.
 2. **Gets real data from the API** – It calls the live API once to “discover” real IDs and names (e.g. a model handle, a node handle, a tag). That discovery data is used to build valid requests for each endpoint.
 3. **Generates test cases** – For each endpoint in the spec, it creates at least one “positive” test (expects 200 OK) and, where the spec says so, one “negative” test (expects 404 or 422 for bad input).
 4. **Runs the tests and reports** – It sends HTTP requests for each generated case, checks status codes and basic response shape, and writes a **JSON** and **HTML** report with pass/fail and timing.
@@ -60,7 +60,7 @@ OpenAPI mechanics and discovery are in §3.1–§3.5; **runnable suites** and re
 
 ### 3.1 OpenAPI spec (the “spec”)
 
-The **OpenAPI** (formerly Swagger) specification is a standard way to describe a REST API. The file `spec/v2-4-0.json` contains:
+The **OpenAPI** (formerly Swagger) specification is a standard way to describe a REST API. The file `spec/v2-5-0.json` contains:
 
 - **Paths** – Each URL pattern (e.g. `/v2/models/`, `/v2/id/{id}`).
 - **Operations** – For each path, the HTTP method (here, only GET) and:
@@ -78,8 +78,9 @@ Many endpoints need **real values** in the URL. For example, “get node by hand
 3. GET that node’s properties → take the first property’s `handle`.
 4. GET that property’s terms → take a real `term` value.
 5. GET `/tags/` → take a real tag `key` and `value`.
+6. GET `/edps/{originName}` (default origin `caDSR`, overridable via `STS_EDP_ORIGIN_NAME`) → take the first EDP defining term with both `origin_id` and `origin_version` for `/edp/.../terms` positive cases.
 
-The result is a **test_data** dictionary (e.g. `model_handle`, `model_version`, `node_handle`, `prop_handle`, `term_value`, `tag_key`, `tag_value`, and various `nanoid`s). The **generator** uses this to fill in path and query parameters when building test cases.
+The result is a **test_data** dictionary (e.g. `model_handle`, `model_version`, `node_handle`, `prop_handle`, `term_value`, `tag_key`, `tag_value`, `edp_origin_name`, `edp_origin_id`, `edp_origin_version`, and various `nanoid`s). The **generator** uses this to fill in path and query parameters when building test cases.
 
 ### 3.3 Test case generation
 
@@ -150,6 +151,7 @@ Skip this subsection unless you are debugging generated cases or report rows for
   - **Default expectation:** For GETs with integer `skip` that document **404**, expect `404` + `expected_json: {"detail": "Not found."}` with `negative: true`.
   - **Exceptions (always emitted when route has `skip`):**  
     - `GET .../terms/cde-pvs/{id}/{version}/pvs` expects `200` + `[]` (`expected_json`).  
+    - `GET .../edps/{originName}/{originId}/{originVersion}/properties` expects `200` + `[]` (`expected_json`).  
     - `GET .../terms/model-pvs/{model}/{property}` expects `200` + **non-empty** JSON array where each object has `permissibleValues: []` (`skip_oob_assert: model_pvs_empty_permissible_values`).
   - **Exception note:** For model-pvs skip-OOB, top-level `[]` is treated as failure and flagged for investigation.
   - **Negative flag:** Exception cases use `negative: false`.
@@ -209,9 +211,9 @@ Manual caDSR `GET /DataElement/{publicId}` calls retry transient failures (conne
     - model-pvs must exclude the URL, match YAML enum multiset (`yaml_enum.file` / `yaml_enum.property`), and return rows with null NCIt + empty synonyms.
   - **Optional display helper:** `pytest_param_id` shortens pytest case names.
   - **Run command:** `pytest tests/test_manual/test_cadsr_multi_concept_cdes.py -m cadsr_multi_concept_pv -v`
-- **caDSR vs STS PVS (Designations / DRAFT NEW)**
+- **caDSR vs STS PVS (Designations / DRAFT NEW / RELEASED)**
   - **Test file:** `tests/test_manual/test_cadsr_alternatevalues_draftnew_cdes.py`
-  - **Markers:** `cadsr_alt_pvs`, `cadsr_draft_new`
+  - **Markers:** `cadsr_alt_pvs`, `cadsr_draft_new`, `cadsr_released_cde_pvs`
   - **`cadsr_alt_pvs`:** Collects caDSR `Designations[].name` (all types by default), subtracts every official `PermissibleValues[].value` string, and asserts the remaining **non-official** names **do not** appear as their own `permissibleValues.value` on STS **cde-pvs** or **model-pvs** (removed duplicate null-NCIt clutter rows). **Synonyms are not checked** (NCIt + caDSR strings overlap there). Optional **`CADSR_ALTERNATE_DESIGNATION_TYPES`** limits which `Designations[].type` rows are included before that subtraction (unset or `*` = all types). Also asserts caDSR official PV multiset ⊆ STS **all** `value` rows (not NCIt-only), and no duplicate PV `value` strings. Cases: `data/cadsr_alternate_values_cases.json`.
   - **`cadsr_draft_new` assertions:**
     - caDSR `workflowStatus` is **DRAFT NEW**
@@ -219,8 +221,15 @@ Manual caDSR `GET /DataElement/{publicId}` calls retry transient failures (conne
     - Every caDSR `PermissibleValues[].value` appears in STS cde-pvs rows with non-null `ncit_concept_code` (rows with null NCIt are ignored)
   - **Optional model-pvs check:** If case has `model`, `model_version`, and `property`, also assert PV multiset subset against STS model-pvs NCIt-coded rows (no `CDEFullName` check there).
   - **Cases file:** `data/cadsr_draft_new_cases.json`
+  - **`cadsr_released_cde_pvs` assertions:**
+    - caDSR `workflowStatus` is **RELEASED**
+    - caDSR `longName` exactly matches STS `CDEFullName`
+    - caDSR `PermissibleValues[].value` multiset **equals** STS **cde-pvs** `permissibleValues[].value` multiset (**all** rows, not NCIt-only)
+    - Unlike `cadsr_draft_new` (subset on NCIt rows), parity catches stale STS PVs that caDSR no longer has
+  - **Cases file:** `data/cadsr_released_cde_pv_cases.json` (pinned `cde_id` + `cde_version`)
+  - **Run command:** `pytest tests/test_manual/test_cadsr_alternatevalues_draftnew_cdes.py -m cadsr_released_cde_pvs -v`
   - **Other notes:**
-    - CDE version for cde-pvs URL is read from live caDSR.
+    - CDE version for **draft_new** cde-pvs URL is read from live caDSR; **released** cases use pinned `cde_version` from JSON.
     - Set `CADSR_BASE_URL` to use non-default caDSR host.
     - `STS_SSL_VERIFY` applies to both STS and caDSR `APIClient` calls.
     - **`cadsr_alt_pvs`:** runs with no extra env by default; set `CADSR_ALTERNATE_DESIGNATION_TYPES` only if you want to limit which `Designations[].type` values are considered before subtracting official PV strings.
@@ -229,6 +238,82 @@ Manual caDSR `GET /DataElement/{publicId}` calls retry transient failures (conne
   - **Origin derivation:** `origin` comes from `STS_BASE_URL` with trailing `/v2` removed via `sts_test_framework.config.sts_legacy_origin()`.
   - **Config rule:** Do not set a second base URL unless legacy routes are hosted elsewhere; then adjust `STS_BASE_URL` or extend the helper.
   - **Reference test:** `tests/test_manual/test_cde_pvs_legacy_vs_v2.py` (marker `cde_pvs_legacy`)
+
+### 3.7.2 EDP and custom CDE (reference)
+
+Skip unless you run or debug EDP manual modules.
+
+Manual tests complement **generated** EDP smoke coverage (discovery via ``STS_EDP_ORIGIN_NAME``; see [§6.2](#62-changing-what-gets-discovered)). Generated cases check HTTP status and pagination; manual cases pin **origin/id/version** triples and assert **PV `value`** parity (unique labels vs each cde-pvs wrapper for caDSR; multiset vs pinned/YAML for custom CDEs).
+
+- **Test file:** `tests/test_manual/test_edp_custom_cdes.py`
+- **Markers:** `edp_cadsr_parity`, `edp_custom_cde`
+- **`edp_cadsr_parity` assertions:**
+  - ``GET /edp/{origin_name}/{origin_id}/{origin_version}/terms`` returns **200** with non-empty ``Term[]``
+  - Each ``GET /terms/cde-pvs/{origin_id}/{origin_version}/pvs`` wrapper’s PV ``value`` **set** equals the EDP unique PV ``value`` set (NCIt/synonyms ignored). Multiple ``CDEFullName`` wrappers may repeat the same labels; do not concatenate wrappers as a multiset.
+  - Defining term appears in ``GET /edps/{origin_name}`` with matching ``origin_id`` + ``origin_version``
+  - No duplicate PV ``value`` strings on EDP response
+- **`edp_custom_cde` assertions:**
+  - Same EDP GET/listing checks for **non-caDSR** ``origin_name`` (e.g. ``CRDC``)
+  - PV multiset **equals** ``expected_pv_values`` in JSON, ``expected_pv_values_file`` snapshot under `data/edp_expected_pv/`, and/or Enum labels from ``yaml_ref`` (`file` + `property` under `data/data-models-yaml/`)
+  - Does **not** call ``cde-pvs`` (custom authorities are EDP-only)
+- **Case files:**
+  - `data/edp_cadsr_parity_cases.json` — pinned caDSR triples; ``compare_cde_pvs`` defaults true
+  - `data/edp_custom_cde_cases.json` — pinned custom triples + expected PVs, snapshot file ref, or ``yaml_ref``
+  - `data/edp_expected_pv/*.json` — full PV label snapshots (sorted arrays); regenerate with `scripts/generate_edp_pv_snapshot.py`
+- **CRDC custom EDP cases (QA):**
+
+| origin_id | origin_version | Defining label | PV count | Expected source |
+|-----------|----------------|----------------|----------|-----------------|
+| CRDC0002 | 1 | obib value set reference | 128 | inline ``expected_pv_values`` |
+| CRDC0001 | 1 | uberon value set reference | 12,854 | ``data/edp_expected_pv/CRDC0001_1.json`` |
+| CRDC0003 | 3.2 | icdo valueset reference | 1,183 | ``data/edp_expected_pv/CRDC0003_3.2.json`` (``allow_duplicate_pv_values``: ICD-O may repeat display labels) |
+
+- **Regenerate PV snapshots** (after MDB value-set refresh):
+
+```bash
+python scripts/generate_edp_pv_snapshot.py --origin-id CRDC0001 --origin-version 1
+python scripts/generate_edp_pv_snapshot.py --origin-id CRDC0003 --origin-version 3.2
+```
+
+- **Version strings:** Use exact MDB pins (e.g. ``2.0`` not ``2.00``); mismatch yields empty ``cde-pvs`` or EDP **404**.
+- **Run commands:**
+  - `pytest tests/test_manual/test_edp_custom_cdes.py -m edp_cadsr_parity -v`
+  - `pytest tests/test_manual/test_edp_custom_cdes.py -m edp_custom_cde -v`
+  - `pytest tests/test_manual/test_edp_custom_cdes.py -m "edp_cadsr_parity or edp_custom_cde" -v`
+
+#### EDP listing uniqueness (`edp_edps_unique`)
+
+- **Test file:** `tests/test_manual/test_edp_edps_no_duplicates.py`
+- **Marker:** `edp_edps_unique`
+- **What it checks:** ``GET /edps/{origin}`` has no unexpected duplicate ``(origin_id, origin_version)`` rows (listing key). MDB term-node uniqueness is stricter — ``(origin_name, origin_id, origin_version, value)`` — so a few caDSR residuals can appear twice in the listing without being redundant term nodes.
+- **Allowlist:** `data/edp_edps_unique_cases.json` → ``allowed_duplicate_edps`` (currently seven caDSR triples). Allowlisted residuals are reported but do not fail; any new duplicate still fails. Stale allowlist entries (no longer duplicated) print a warning only.
+- **CRDC:** must remain fully unique (no allowlisted residuals).
+- **Run command:** `pytest tests/test_manual/test_edp_edps_no_duplicates.py -m edp_edps_unique -v`
+
+### 3.7.3 Oversized skip/limit bounds (reference)
+
+- **Test file:** `tests/test_manual/test_skip_limit_upper_bound.py`
+- **Marker:** `skip_limit_bounds`
+- **What it checks:** Ticket-scale integer `skip` / `limit` on every discovered paginated list path (from generated `__bad_query_skip` cases) must return **422** with a detail naming the bad param — **not 500**. Excludes `/models/`, `/model/{handle}/versions`, and `/count` routes.
+- **Note:** Expected to fail on STS until the API validates upper bounds; then it is a regression guard.
+- **Run command:** `pytest tests/test_manual/test_skip_limit_upper_bound.py -m skip_limit_bounds -v`
+
+### 3.7.4 Mixed invalid skip/limit multi-error (reference)
+
+- **Test file:** `tests/test_manual/test_skip_limit_upper_bound.py`
+- **Marker:** `skip_limit_multi_error`
+- **What it checks:** When `skip` and `limit` are both invalid, every discovered skip/limit path must return **422** with a detail entry naming **both** params, **each exactly once**. Covers three combos: `skip=-1` + huge `limit`, huge `skip` + non-integer `limit`, and the `skip=abc123` + `limit=xyz567` ticket repro. Guards both the dropped-`value_too_large` bug and the duplicated-detail bug. Unlike the oversized test, this **includes** `/models/` and `/model/{handle}/versions`.
+- **Note:** Expected to pass on QA (fixes confirmed); fails if a param error is silently dropped or duplicated again.
+- **Run command:** `pytest tests/test_manual/test_skip_limit_upper_bound.py -m skip_limit_multi_error -v`
+
+### 3.7.5 Model release-version baseline (reference)
+
+- **Test file:** `tests/test_manual/test_model_release_versions_baseline.py`
+- **Marker:** `model_release_versions`
+- **Baseline file:** `data/model_release_versions_baseline.json`
+- **What it checks:** One test walks every baseline model handle: each must still appear in `GET /models/`, and every **release** version string (no hyphen) in the baseline must still appear in `GET /model/{handle}/versions`. Failures are accumulated and reported together. New versions/models are allowed (subset assertion: baseline ⊆ live). Pre-releases are ignored.
+- **Regenerate baseline:** `python scripts/generate_model_release_versions_baseline.py` (uses `STS_BASE_URL`; default QA). Re-run when you intentionally ratchet the floor after new releases, or when targeting stage/prod.
+- **Run command:** `pytest tests/test_manual/test_model_release_versions_baseline.py -m model_release_versions -v`
 
 ### 3.8 Term-by-value (YAML → STS)
 
@@ -245,8 +330,8 @@ These verification pipelines are **not** pytest and **not** the OpenAPI-generate
 | `c3dc-model-props.yml`              | `python tests/term_verify/c3dc_term_verify.py`     | `reports/term_value/C3DC/`     |
 | `ctdc_model_properties_file-2.yaml` | `python tests/term_verify/ctdc_term_verify.py`     | `reports/term_value/CTDC/`     |
 | `icdc-model-props.yml`              | `python tests/term_verify/icdc_term_verify.py`     | `reports/term_value/ICDC/`     |
-| `cds-model-props-4.yml`             | `python tests/term_verify/cds_term_verify.py`      | `reports/term_value/CDS/`      |
-| `ccdi-dcc-model-props-3.yml`        | `python tests/term_verify/ccdi_dcc_term_verify.py` | `reports/term_value/CCDI-DCC/` |
+| `cds-model-props-12.0.0.yml`        | `python tests/term_verify/cds_term_verify.py`      | `reports/term_value/CDS/`      |
+| `ccdi-dcc-model-props-5.yml`        | `python tests/term_verify/ccdi_dcc_term_verify.py` | `reports/term_value/CCDI-DCC/` |
 
 
 - **Source:** CBIIT / model release artifacts (same tree as `mdb/data-models-yaml/` in `termValue_verification_scripts`).
@@ -372,7 +457,8 @@ sts-spec-test-automation/
 │   └── templates/
 │       └── index.html        # Test runner UI (single page + SSE client)
 ├── spec/
-│   ├── v2-4-0.json           # Bundled OpenAPI spec (default; STS v2 contract)
+│   ├── v2-5-0.json           # Bundled OpenAPI spec (default; STS v2 contract)
+│   ├── v2-4-0.json           # Earlier snapshot (reference only)
 │   └── v2.json               # Earlier snapshot (reference only)
 ├── src/sts_test_framework/   # Main framework code
 │   ├── __init__.py
@@ -573,6 +659,7 @@ Implementation detail: base URL resolution lives in [sts_test_framework.config.s
 | Variable                    | Meaning                                                                                                                                                                                                         | Default                                          |
 | --------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------ |
 | `STS_BASE_URL`              | Base URL of the STS v2 API (pytest, CLI, and `APIClient`; include `/v2`)                                                                                                                                        | `https://sts-qa.cancer.gov/v2`                   |
+| `STS_EDP_ORIGIN_NAME`       | Origin (authority) for EDP discovery via ``GET /edps/{originName}`` in generated tests. First term with ``origin_id`` + ``origin_version`` fills ``/edp/.../terms`` paths. Use a custom CDE authority when testing non-caDSR EDP data. | `caDSR`                                          |
 | `STS_SSL_VERIFY`            | Set to `false` to disable SSL certificate verification (e.g. local/dev with self-signed certs)                                                                                                                  | `true`                                           |
 | `REPORT_DIR`                | Directory where the CLI writes timestamped `report_YYYY-MM-DDTHH-MM-SS.json` and `.html` (each run gets its own files)                                                                                          | `reports`                                        |
 | `STS_MODELS`                | Comma-separated model handles for `scripts/run_autogenerated_tests.py` only (subset of models)                                                                                                                  | (all models in script)                           |
@@ -689,7 +776,7 @@ The CLI loads the spec, runs discovery, generates cases, runs them, and **always
 python -m sts_test_framework.cli
 ```
 
-Defaults: spec = `spec/v2-4-0.json`, base URL = `STS_BASE_URL` or `https://sts-qa.cancer.gov/v2` (same default as `DEFAULT_STS_BASE_URL` in [sts_test_framework/config.py](../src/sts_test_framework/config.py)), report dir = `reports/`. For **prod**, **stage**, or **local**, set `STS_BASE_URL` or pass `--base-url` (see [§5.2](#52-configuration-environment-variables)).
+Defaults: spec = `spec/v2-5-0.json`, base URL = `STS_BASE_URL` or `https://sts-qa.cancer.gov/v2` (same default as `DEFAULT_STS_BASE_URL` in [sts_test_framework/config.py](../src/sts_test_framework/config.py)), report dir = `reports/`. For **prod**, **stage**, or **local**, set `STS_BASE_URL` or pass `--base-url` (see [§5.2](#52-configuration-environment-variables)).
 
 **Example:** Your CI job runs after every deploy. You run `python -m sts_test_framework.cli --report reports/` and publish `reports/report.html` as an artifact so the team can open it and see which endpoints passed or failed. You don’t need pytest in that job—just the CLI and the report files.
 
@@ -697,7 +784,7 @@ Defaults: spec = `spec/v2-4-0.json`, base URL = `STS_BASE_URL` or `https://sts-q
 
 ```bash
 # Custom spec and base URL
-python -m sts_test_framework.cli --spec spec/v2-4-0.json --base-url https://sts.cancer.gov/v2
+python -m sts_test_framework.cli --spec spec/v2-5-0.json --base-url https://sts.cancer.gov/v2
 
 # Write reports to a specific folder
 python -m sts_test_framework.cli --report reports/
@@ -756,7 +843,7 @@ Whether you use **pytest** or the **CLI**, the same pipeline runs: load spec →
 
 **Short summary:**
 
-1. **Load spec** – Read `spec/v2-4-0.json` (or the path you gave); parse as JSON or YAML into a dict with paths and schemas.
+1. **Load spec** – Read `spec/v2-5-0.json` (or the path you gave); parse as JSON or YAML into a dict with paths and schemas.
 2. **Create client** – HTTP client with the chosen base URL (and optional SSL verify from env).
 3. **Discovery** – GET models → nodes → properties → terms, GET tags; build `test_data` with real handles and IDs.
 4. **Generate cases** – For each GET operation in the spec, build positive (200) and optionally negative (404/422) cases using `test_data`.
@@ -769,7 +856,7 @@ A more detailed breakdown of each step is below.
 
 #### Step 1: Load the spec
 
-- **What happens:** The framework reads the spec file from disk (e.g. `spec/v2-4-0.json`). The file may be JSON or YAML; the loader tries to parse it as JSON first, then falls back to YAML if needed.
+- **What happens:** The framework reads the spec file from disk (e.g. `spec/v2-5-0.json`). The file may be JSON or YAML; the loader tries to parse it as JSON first, then falls back to YAML if needed.
 - **Result:** A Python dictionary with at least:
   - `paths` – each key is a path template (e.g. `/v2/models/`, `/v2/id/{id}`); each value describes the HTTP methods and their parameters and responses.
   - `components.schemas` – reusable response/request body schemas (e.g. `Model`, `Node`, `Entity`).
@@ -883,12 +970,16 @@ Example (already in the project):
 
 ```python
 # tests/test_manual/test_root.py
-def test_root_returns_200(api_client):
+def test_root_returns_ready_with_spec_version(api_client, spec_version):
     response = api_client.get("/")
     assert response.status_code == 200
+    data = response.json()
+    assert data.get("application") == "STS"
+    assert data.get("status") == "READY"
+    assert data.get("version") == spec_version
 ```
 
-You get `api_client` and `test_data` from `conftest.py`; no need to load the spec or run discovery yourself.
+You get `api_client`, `spec_version`, and `test_data` from `conftest.py`; `spec_version` comes from the bundled OpenAPI spec's `info.version`.
 
 ### 6.2 Changing what gets discovered
 
@@ -897,6 +988,8 @@ If a new endpoint needs a new kind of ID (e.g. a “study” id), you add the di
 1. Add one or more GET requests to obtain that ID (or list of IDs).
 2. Put the result in the `data` dict (e.g. `data["study_id"] = ...`).
 3. In `generator.py`, in `_resolve_path_params()` (and optionally `_resolve_query_params()`), add a branch for the new parameter name and set `values[name]` from `test_data` (e.g. `test_data["study_id"]`). If discovery didn’t find a value, return `None` for that endpoint so no positive case is generated until data exists.
+
+**EDP endpoints (built-in):** Discovery calls ``GET /edps/{origin}`` (see ``STS_EDP_ORIGIN_NAME``) and stores ``edp_origin_name``, ``edp_origin_id``, ``edp_origin_version``, and ``edp_available``. The generator maps OpenAPI path params ``originName``, ``originId``, and ``originVersion`` to those keys. When EDP data exists, each of ``GET /edps/{originName}`` and ``GET /edp/{originName}/{originId}/{originVersion}/terms`` gets a positive case plus pagination, bad-query, and skip-OOB extras (~6 cases per endpoint, in addition to the invalid-path negative).
 
 ### 6.3 Changing how cases are generated
 
@@ -963,7 +1056,7 @@ Example:
     STS_BASE_URL: ${{ vars.STS_BASE_URL }}
   run: |
     pip install -e .
-    python -m sts_test_framework.cli --spec spec/v2-4-0.json --report reports/
+    python -m sts_test_framework.cli --spec spec/v2-5-0.json --report reports/
 ```
 
 Or run pytest and optionally run the CLI for reports:
@@ -990,7 +1083,7 @@ The **parser_agent** module is an **optional**, **informational** helper: it **p
 python3 parser_agent/main.py logs/manual_2026-03-25T00-00-00.log
 ```
 
-**Optional:** override the Bedrock model with **`BEDROCK_MODEL_ID`** (default in `[parser_agent/config.py](../parser_agent/config.py)`). **`AWS_DEFAULT_REGION`** is read as the region when setting up the client.
+**Optional:** override the Bedrock model with **`BEDROCK_MODEL_ID`** (default: `us.anthropic.claude-haiku-4-5-20251001-v1:0` in `[parser_agent/config.py](../parser_agent/config.py)`). **`AWS_DEFAULT_REGION`** is read as the region when setting up the client.
 
 ### 7.5 Performance testing (concurrent GETs)
 
@@ -1027,7 +1120,7 @@ This suite is **not** included in `run_full_suite.sh`.
 - **Positive test** – A test that sends valid input and expects success (200).
 - **Query parameter** – Key-value in the URL after `?` (e.g. `skip=0`, `limit=10`).
 - **Schema** – In OpenAPI, the description of a response body (e.g. “object with fields nanoid, handle, version”). Used for contract validation.
-- **Spec** – The OpenAPI specification file (`spec/v2-4-0.json`); the “contract” of the API.
+- **Spec** – The OpenAPI specification file (`spec/v2-5-0.json`); the “contract” of the API.
 - **Tag** – In OpenAPI, a label on an operation (e.g. `id`, `model`, `models`). Used to group endpoints and to filter which tests to run (`--tags`).
 - **test_data** – The dictionary produced by discovery (model_handle, node_handle, etc.) used to fill path and query parameters when generating cases.
 

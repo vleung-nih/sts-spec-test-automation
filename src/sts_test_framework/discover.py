@@ -7,6 +7,7 @@ The returned dict keys (``model_handle``, ``node_handle``, ``term_value``, etc.)
 from urllib.parse import quote
 
 from .client import APIClient
+from .config import sts_edp_origin_name
 
 
 def _is_release_version(version_str: str) -> bool:
@@ -57,6 +58,41 @@ def get_latest_version(client: APIClient, model_handle: str) -> str | None:
     return None
 
 
+def _discover_edp(client: APIClient, origin: str, limit: int = 10) -> dict:
+    """
+    Probe ``GET /edps/{origin}`` for the first EDP defining term with both
+    ``origin_id`` and ``origin_version``.
+
+    Returns a partial dict (``edp_origin_name``, ``edp_origin_id``,
+    ``edp_origin_version``, ``edp_available``) or empty when none found.
+    """
+    out: dict = {}
+    path = f"/edps/{quote(origin, safe='')}"
+    response = client.get(path, params={"limit": limit})
+    if response.status_code != 200:
+        return out
+    terms = response.json()
+    if not isinstance(terms, list) or len(terms) == 0:
+        return out
+    for term in terms:
+        if not isinstance(term, dict):
+            continue
+        origin_id = term.get("origin_id")
+        origin_version = term.get("origin_version")
+        if origin_id is None or origin_version is None:
+            continue
+        id_str = str(origin_id).strip()
+        ver_str = str(origin_version).strip()
+        if not id_str or not ver_str:
+            continue
+        out["edp_origin_name"] = origin
+        out["edp_origin_id"] = id_str
+        out["edp_origin_version"] = ver_str
+        out["edp_available"] = True
+        return out
+    return out
+
+
 def discover(
     client: APIClient,
     base_path: str = "/v2",
@@ -76,7 +112,8 @@ def discover(
     Returns:
         Partial dict on failure (e.g. empty if ``GET /models/`` fails). On success
         includes at least ``model_handle``, ``model_version``, and often
-        ``node_handle``, ``prop_handle``, ``term_value``, ``tag_key``/``tag_value``.
+        ``node_handle``, ``prop_handle``, ``term_value``, ``tag_key``/``tag_value``,
+        and when EDP data exists ``edp_origin_name``/``edp_origin_id``/``edp_origin_version``.
     """
     data = {}
     models_path = "/models/" if base_path == "/v2" else f"{base_path.rstrip('/')}/models/"
@@ -215,5 +252,8 @@ def discover(
             mp_list = response.json()
             if isinstance(mp_list, list) and len(mp_list) > 0:
                 data["model_pvs_available"] = True
+
+    # EDP defining terms (for /edps and /edp/.../terms generated positive cases)
+    data.update(_discover_edp(client, sts_edp_origin_name()))
 
     return data

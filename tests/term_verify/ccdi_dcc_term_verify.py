@@ -30,45 +30,102 @@ from sts_test_framework.term_verify_utils import strip_inline_yaml_comment
 
 MODEL_LABEL = "CCDI-DCC"
 
+# Historical allowlist (CCDI-DCC, before 2.0.0 STS graph backfill): these pairs returned
+# 404 on term-by-value and were confirmed absent in Memgraph. After STS fixes they return
+# 200 on latest (2.0.0). Kept commented for audit trail; re-enable if a term regresses.
+#
+# ("alteration_effect", "Loss of Heterozygosity"),
+# ("alteration_effect", "Methylated"),
+# ("alteration_effect", "Unmethylated"),
+# ("alteration_type", "Not Applicable"),
+# ("alteration_type", "Not Reported"),
+# ("diagnosis", "Atypical lipomatous tumor"),
+# ("diagnosis", "Chondroma, NOS"),
+# ("diagnosis", "Ectomesenchymoma"),
+# ("diagnosis", "Epithelioid Neoplasm, NOS"),
+# ("diagnosis", "Fibrolipoma"),
+# ("diagnosis", "Follicular adenocarcinoma, NOS"),
+# ("diagnosis", "Glomus Tumor, NOS"),
+# ("diagnosis", "Inflammatory carcinoma"),
+# ("diagnosis", "Myxoinflammatory fibroblastic sarcoma"),
+# ("diagnosis", "Myxoma, NOS"),
+# ("diagnosis", "No Known/Reported Cancer Diagnosis"),
+# ("diagnosis", "Osteochondroma"),
+# ("diagnosis", "Palmar/plantar type fibromatosis"),
+# ("diagnosis", "Round cell sarcoma, NOS"),
+# ("file_type", "cnn"),
+# ("file_type", "cnr"),
+# ("file_type", "mzid"),
+# ("file_type", "mzml"),
+# ("file_type", "parquet"),
+# ("file_type", "psm"),
+# ("file_type", "selfsm"),
+# ("file_type", "sf"),
+# ("fixation_embedding_method", "Fixation"),
+# ("fixation_embedding_method", "Not Applicable"),
+# ("fixation_embedding_method", "Refrigerated"),
+# ("fixation_embedding_method", "Refrigerated Vacuum Chamber"),
+# ("implantation_site", "cerebellum"),
+# ("last_known_survival_status", "Not Reported"),
+# ("library_source_material", "Not Applicable"),
+# ("library_source_molecule", "Not Applicable"),
+# ("library_strand", "Not Reported"),
+# ("library_strategy", "Bulk RNA-Seq"),
+# ("library_strategy", "CITE-Seq"),
+# ("library_strategy", "mRNA-Seq"),
+# ("library_strategy", "scDNA-Seq"),
+# ("library_strategy", "scMultiome"),
+# ("library_strategy", "scRNA-Seq"),
+# ("library_strategy", "snATAC-Seq"),
+# ("library_strategy", "Spatial-tx"),
+# ("medical_history_category", "Adverse Event"),
+# ("medical_history_category", "Clinical Assessment"),
+# ("medical_history_category", "Comorbidity"),
+# ("medical_history_category", "Risk Factor"),
+# ("submitted_diagnosis", "Atypical lipomatous tumor"),
+# ("submitted_diagnosis", "Chondroma, NOS"),
+# ("submitted_diagnosis", "Ectomesenchymoma"),
+# ("submitted_diagnosis", "Epithelioid Neoplasm, NOS"),
+# ("submitted_diagnosis", "Fibrolipoma"),
+# ("submitted_diagnosis", "Follicular adenocarcinoma, NOS"),
+# ("submitted_diagnosis", "Glomus Tumor, NOS"),
+# ("submitted_diagnosis", "Inflammatory carcinoma"),
+# ("submitted_diagnosis", "Myxoinflammatory fibroblastic sarcoma"),
+# ("submitted_diagnosis", "Myxoma, NOS"),
+# ("submitted_diagnosis", "No Known/Reported Cancer Diagnosis"),
+# ("submitted_diagnosis", "Osteochondroma"),
+# ("submitted_diagnosis", "Palmar/plantar type fibromatosis"),
+# ("submitted_diagnosis", "Round cell sarcoma, NOS"),
+# ("tumor_spatial_extent", "Not Applicable"),
+#
+# Do NOT allowlist ("dose_unit", "PA"): open STS ticket — PA is collapsed with
+# lowercase "pa" and case is not preserved on load. Once that is fixed, PA
+# must be loaded and term-by-value should return 200. Keep the 404 as
+# unexpected until the ticket is closed.
+
 KNOWN_MISSING_IN_STS_DB: frozenset[tuple[str, str]] = frozenset(
     {
-        ("diagnosis", "Chondroma, NOS"),
-        ("diagnosis", "Ectomesenchymoma"),
-        ("diagnosis", "Epithelioid Neoplasm, NOS"),
-        ("diagnosis", "Fibrolipoma"),
-        ("diagnosis", "Follicular adenocarcinoma, NOS"),
-        ("diagnosis", "Glomus Tumor, NOS"),
-        ("diagnosis", "Inflammatory carcinoma"),
-        ("diagnosis", "Myxoinflammatory fibroblastic sarcoma"),
-        ("diagnosis", "Myxoma, NOS"),
-        ("file_type", "cnn"),
-        ("file_type", "cnr"),
-        ("file_type", "mzid"),
-        ("file_type", "mzml"),
-        ("file_type", "parquet"),
-        ("file_type", "psm"),
-        ("file_type", "selfsm"),
-        ("file_type", "sf"),
-        ("implantation_site", "cerebellum"),
-        ("last_known_survival_status", "Not Reported"),
-        ("library_source_material", "Not Applicable"),
-        ("library_source_molecule", "Not Applicable"),
-        ("library_strand", "Not Reported"),
-        ("library_strategy", "CITE-Seq"),
-        ("medical_history_category", "Adverse Event"),
-        ("medical_history_category", "Clinical Assessment"),
-        ("medical_history_category", "Comorbidity"),
-        ("medical_history_category", "Risk Factor"),
-        ("submitted_diagnosis", "Chondroma, NOS"),
-        ("submitted_diagnosis", "Ectomesenchymoma"),
-        ("submitted_diagnosis", "Epithelioid Neoplasm, NOS"),
-        ("submitted_diagnosis", "Fibrolipoma"),
-        ("submitted_diagnosis", "Follicular adenocarcinoma, NOS"),
-        ("submitted_diagnosis", "Glomus Tumor, NOS"),
-        ("submitted_diagnosis", "Inflammatory carcinoma"),
-        ("submitted_diagnosis", "Myxoinflammatory fibroblastic sarcoma"),
-        ("submitted_diagnosis", "Myxoma, NOS"),
-        ("tumor_spatial_extent", "Not Applicable"),
+        # New YAML enums in 2.0.0 extract; STS 404; confirmed absent in DCC Memgraph
+        # 2026-08-31 (diagnosis.diagnosis / diagnosis.submitted_diagnosis / file_type).
+        ("file_type", "ubam"),
+        ("diagnosis", "Adnexal adenocarcinoma, NOS"),
+        ("diagnosis", "Askin tumor"),
+        ("diagnosis", "Embryonal adenoma"),
+        ("diagnosis", "Insulinoma, NOS"),
+        ("diagnosis", "Mesothelioma, malignant"),
+        ("diagnosis", "Mucoepidermoid tumor"),
+        ("diagnosis", "Oxyphilic adenocarcinoma"),
+        ("diagnosis", "Papillary urothelial neoplasm of low malignant potential"),
+        ("diagnosis", "Spindle cell nevus, NOS"),
+        ("submitted_diagnosis", "Adnexal adenocarcinoma, NOS"),
+        ("submitted_diagnosis", "Askin tumor"),
+        ("submitted_diagnosis", "Embryonal adenoma"),
+        ("submitted_diagnosis", "Insulinoma, NOS"),
+        ("submitted_diagnosis", "Mesothelioma, malignant"),
+        ("submitted_diagnosis", "Mucoepidermoid tumor"),
+        ("submitted_diagnosis", "Oxyphilic adenocarcinoma"),
+        ("submitted_diagnosis", "Papillary urothelial neoplasm of low malignant potential"),
+        ("submitted_diagnosis", "Spindle cell nevus, NOS"),
     }
 )
 
@@ -148,7 +205,7 @@ def _fetch_enum_values_from_url(url: str, cache: dict[str, list[str]]) -> list[s
 class CCDIDCCTermVerify(TermVerifyPipeline):
     model_handle = "CCDI-DCC"
     csv_prefix = "ccdi_dcc"
-    default_yaml_filename = "ccdi-dcc-model-props-4.yml"
+    default_yaml_filename = "ccdi-dcc-model-props-5.yml"
     report_subdir = "CCDI-DCC"
 
     def parse_yaml(self, path: Path) -> list[tuple[str, str, list[str]]]:

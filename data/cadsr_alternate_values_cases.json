@@ -4,7 +4,7 @@
       "cde_id": "6352164",
       "cde_version": "2.00",
       "model": "CDS",
-      "model_version": "11.0.3",
+      "model_version": "11.0.4",
       "property": "instrument_model",
       "description": "Sequencing library platform (example: NextSeq 550 alt names)"
     },
@@ -12,14 +12,14 @@
       "cde_id": "7572817",
       "cde_version": "3.00",
       "model": "CDS",
-      "model_version": "11.0.3",
+      "model_version": "11.0.4",
       "property": "sex"
     },
     {
       "cde_id": "12373576",
       "cde_version": "3.00",
       "model": "CDS",
-      "model_version": "11.0.3",
+      "model_version": "11.0.4",
       "property": "experimental_strategy_and_data_subtypes"
     },
     {
@@ -33,14 +33,14 @@
       "cde_id": "13529783",
       "cde_version": "2.00",
       "model": "CDS",
-      "model_version": "11.0.3",
+      "model_version": "11.0.4",
       "property": "progression_or_recurrence"
     },
     {
       "cde_id": "14688604",
       "cde_version": "2.00",
       "model": "CDS",
-      "model_version": "11.0.3",
+      "model_version": "11.0.4",
       "property": "sample_tumor_status"
     }
   ]
