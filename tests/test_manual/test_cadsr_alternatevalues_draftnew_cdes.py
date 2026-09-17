@@ -63,7 +63,26 @@ For pinned public IDs (see ``data/cadsr_draft_new_cases.json``), we:
     pytest tests/test_manual/test_cadsr_alternatevalues_draftnew_cdes.py -m cadsr_draft_new -v
 
 ================================================================================
-ENVIRONMENT (both families)
+3) ``cadsr_released_cde_pvs`` — RELEASED CDEs: **cde-pvs** PV parity with caDSR
+================================================================================
+
+For pinned CDE id + version rows (see ``data/cadsr_released_cde_pv_cases.json``), we:
+
+1. Load **caDSR** ``GET .../DataElement/{cde_id}?version={cde_version}``.
+2. Assert ``workflowStatus`` is ``RELEASED``.
+3. Assert ``longName`` **equals** STS ``CDEFullName``.
+4. Assert caDSR ``PermissibleValues[].value`` multiset **equals** STS **cde-pvs**
+   ``permissibleValues[].value`` multiset (**all** rows, not NCIt-only).
+
+Unlike ``cadsr_draft_new`` (subset on NCIt rows), this catches stale STS PVs that caDSR
+no longer has — the RELEASED removed-PV regression case.
+
+::
+
+    pytest tests/test_manual/test_cadsr_alternatevalues_draftnew_cdes.py -m cadsr_released_cde_pvs -v
+
+================================================================================
+ENVIRONMENT (all caDSR families)
 ================================================================================
 
 - ``STS_BASE_URL`` — v2 STS root (default QA).
@@ -100,6 +119,7 @@ logger = logging.getLogger(__name__)
 
 _DATA_FILE = project_root() / "data" / "cadsr_alternate_values_cases.json"
 _DRAFT_NEW_DATA_FILE = project_root() / "data" / "cadsr_draft_new_cases.json"
+_RELEASED_CDE_PV_DATA_FILE = project_root() / "data" / "cadsr_released_cde_pv_cases.json"
 
 
 def _load_cases() -> list[dict[str, Any]]:
@@ -121,6 +141,17 @@ def _load_draft_new_cases() -> list[dict[str, Any]]:
     cases = payload.get("cases", [])
     if not cases:
         pytest.skip(f"No cases in {_DRAFT_NEW_DATA_FILE}")
+    return cases
+
+
+def _load_released_cde_pv_cases() -> list[dict[str, Any]]:
+    if not _RELEASED_CDE_PV_DATA_FILE.is_file():
+        pytest.skip(f"Case data file not found: {_RELEASED_CDE_PV_DATA_FILE}")
+    with open(_RELEASED_CDE_PV_DATA_FILE, encoding="utf-8") as f:
+        payload = json.load(f)
+    cases = payload.get("cases", [])
+    if not cases:
+        pytest.skip(f"No cases in {_RELEASED_CDE_PV_DATA_FILE}")
     return cases
 
 
@@ -426,6 +457,53 @@ def _assert_cadsr_subset_sts_all_pv_values(
     )
 
 
+def _normalize_pinned_cde_version(version: Any) -> str:
+    """Normalize pinned ``cde_version`` from case JSON for STS/caDSR URLs."""
+    if version is None:
+        pytest.fail("RELEASED case missing required 'cde_version'")
+    if isinstance(version, bool):
+        pytest.fail(f"Unexpected boolean cde_version: {version!r}")
+    if isinstance(version, (int, float)):
+        return f"{float(version):.2f}"
+    s = str(version).strip()
+    if not s:
+        pytest.fail("RELEASED case 'cde_version' is empty")
+    if re.fullmatch(r"\d+", s):
+        return f"{float(s):.2f}"
+    if re.fullmatch(r"\d+\.\d{1,2}", s):
+        return f"{float(s):.2f}"
+    return s
+
+
+def _assert_cadsr_sts_pv_parity(
+    c_c: Counter,
+    s_all: Counter,
+    case_label: str,
+    sts_endpoint_label: str = "cde-pvs",
+) -> None:
+    """
+    Multiset equality: caDSR official PV values must match STS all-row PV values.
+
+    Catches stale STS values absent from caDSR (removed-PV regression) as well as
+    missing STS values.
+    """
+    if c_c == s_all:
+        return
+    only_cadsr = c_c - s_all
+    only_sts = s_all - c_c
+    print(
+        f"  PV parity fail ({case_label}, {sts_endpoint_label}): "
+        f"only in caDSR={dict(only_cadsr)!r}; only in STS={dict(only_sts)!r}"
+    )
+    print(f"  caDSR Counter={dict(c_c)!r}")
+    print(f"  STS {sts_endpoint_label} (all rows) Counter={dict(s_all)!r}")
+    assert False, (
+        f"{case_label}: caDSR PermissibleValues.value multiset must equal STS "
+        f"{sts_endpoint_label} permissibleValues.value multiset; "
+        f"only in caDSR={dict(only_cadsr)!r}; only in STS={dict(only_sts)!r}"
+    )
+
+
 def _assert_cadsr_subset_sts_ncit(
     c_c: Counter,
     s_ncit: Counter,
@@ -531,6 +609,10 @@ def _case_id(case: dict[str, Any]) -> str:
 
 def _draft_case_id(case: dict[str, Any]) -> str:
     return str(case["cde_id"])
+
+
+def _released_cde_pv_case_id(case: dict[str, Any]) -> str:
+    return f"{case['cde_id']}-{case.get('cde_version', 'x')}"
 
 
 @pytest.mark.cadsr_alt_pvs
@@ -846,3 +928,110 @@ def test_cadsr_draft_new_matches_sts_cde_pvs(
             len(cde_pvs),
             n_ncit_cde,
         )
+
+
+@pytest.mark.cadsr_released_cde_pvs
+@pytest.mark.parametrize("case", _load_released_cde_pv_cases(), ids=_released_cde_pv_case_id)
+def test_cadsr_released_cde_pvs_matches_sts(
+    api_client: APIClient,
+    cadsr_api_client: APIClient,
+    case: dict[str, Any],
+):
+    cde_id = str(case["cde_id"])
+    cde_version = _normalize_pinned_cde_version(case.get("cde_version"))
+    case_label = _released_cde_pv_case_id(case)
+
+    print(f"\n--- caDSR RELEASED vs STS cde-pvs parity: {case_label} ---")
+    if case.get("description"):
+        print(f"  Note: {case['description']}")
+    print(f"  Pinned CDE {cde_id} @ {cde_version}")
+
+    cadsr_path = (
+        f"/DataElement/{quote(cde_id, safe='')}?version={quote(cde_version, safe='')}"
+    )
+    cadsr_url = full_url(cadsr_api_client, cadsr_path)
+    print(f"  caDSR GET: {cadsr_url}")
+    cadsr_res = get_cadsr_data_element_with_retry(cadsr_api_client, cadsr_path)
+    print(
+        f"  caDSR HTTP: {cadsr_res.status_code} in {cadsr_res.duration:.3f}s"
+    )
+    assert cadsr_res.status_code == 200, (
+        f"caDSR GET {cadsr_url} expected 200, got {cadsr_res.status_code}"
+    )
+    cadsr_json = cadsr_res.json()
+    assert isinstance(cadsr_json, dict), (
+        f"caDSR {cadsr_url}: expected JSON object, got {type(cadsr_json).__name__}."
+    )
+
+    de_item = _data_element_dict(cadsr_json)
+    assert de_item is not None, (
+        f"caDSR {cadsr_url}: expected DataElement object or one-element list"
+    )
+
+    wf = de_item.get("workflowStatus")
+    wf_str = str(wf).strip() if wf is not None else None
+    print(f"  caDSR workflowStatus: {wf_str!r}")
+    assert wf_str == "RELEASED", (
+        f"caDSR CDE {cde_id}: expected workflowStatus 'RELEASED', got {wf!r} "
+        "(remove from data/cadsr_released_cde_pv_cases.json if status changed)"
+    )
+
+    long_name = de_item.get("longName")
+    assert long_name is not None, f"caDSR CDE {cde_id}: DataElement missing longName"
+    cadsr_long = str(long_name)
+    print(f"  caDSR longName: {cadsr_long!r}")
+
+    cadsr_pv_vals = _cadsr_pv_value_strings(de_item)
+    print(
+        f"  caDSR PermissibleValues `value` count={len(cadsr_pv_vals)} "
+        f"(multiset; Counter={dict(Counter(cadsr_pv_vals))})"
+    )
+
+    cde_path = (
+        f"/terms/cde-pvs/{quote(cde_id, safe='')}/{quote(cde_version, safe='')}/pvs"
+    )
+    cde_url = full_url(api_client, cde_path)
+    print(f"  STS cde-pvs GET: {cde_url}")
+    cde_res = api_client.get(cde_path)
+    print(
+        f"  STS cde-pvs HTTP: {cde_res.status_code} in {cde_res.duration:.3f}s"
+    )
+    assert cde_res.status_code == 200, (
+        f"STS cde-pvs GET {cde_url} expected 200, got {cde_res.status_code}"
+    )
+    cde_body = cde_res.json()
+    sts_full = _sts_cde_full_name(cde_body)
+    if sts_full is None:
+        print(
+            f"  DEBUG STS cde-pvs (no CDEFullName on first row): "
+            f"{_format_cde_pvs_response_hint(cde_body)}"
+        )
+    assert sts_full is not None, (
+        "STS cde-pvs: expected non-empty array with first object containing non-null "
+        f"CDEFullName. {_format_cde_pvs_response_hint(cde_body)}"
+    )
+    print(f"  STS CDEFullName: {sts_full!r}")
+    assert sts_full == cadsr_long, (
+        f"CDEFullName mismatch: STS {sts_full!r} != caDSR longName {cadsr_long!r}"
+    )
+
+    cde_pvs = _sts_permissible_values_from_list_body(cde_body)
+    c_c = Counter(cadsr_pv_vals)
+    s_all = Counter(_pv_values_list(cde_pvs))
+    print(
+        f"  STS cde-pvs permissibleValues rows={len(cde_pvs)}; "
+        f"all-row Counter={dict(s_all)}"
+    )
+    _assert_no_duplicate_values(cde_pvs, "cde-pvs")
+    _assert_cadsr_sts_pv_parity(c_c, s_all, case_label, "cde-pvs")
+
+    print(
+        f"  PASS {case_label}: RELEASED status OK; longName/CDEFullName OK; "
+        f"caDSR PV multiset == STS cde-pvs (all rows); rows={len(cde_pvs)}\n"
+    )
+    logger.info(
+        "PASS released_cde_pvs %s: cde_pvs_rows=%s cadsr_pv_count=%s",
+        case_label,
+        len(cde_pvs),
+        len(cadsr_pv_vals),
+    )

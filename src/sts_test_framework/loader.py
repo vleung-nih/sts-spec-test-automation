@@ -1,5 +1,5 @@
 """
-Load and parse OpenAPI spec (bundled default: spec/v2-4-0.json).
+Load and parse OpenAPI spec (bundled default: spec/v2-5-0.json).
 
 Provides ``load_spec``, path/schema accessors, and ``normalize_path_for_base`` so
 generated request paths align with a base URL that already includes ``/v2``.
@@ -54,6 +54,15 @@ def get_schemas(spec: dict[str, Any]) -> dict[str, Any]:
     """Return ``components.schemas`` for contract validation and documentation."""
     components = spec.get("components") or {}
     return components.get("schemas") or {}
+
+
+def get_info_version(spec: dict[str, Any]) -> str:
+    """Return OpenAPI ``info.version`` (STS API package version in the spec)."""
+    info = spec.get("info") or {}
+    version = info.get("version")
+    if not version:
+        raise ValueError("OpenAPI spec missing info.version")
+    return str(version)
 
 
 def get_operations(spec: dict[str, Any], tag_filter: list[str] | None = None) -> list[tuple[str, str, dict]]:

@@ -30,6 +30,13 @@ def spec(spec_path):
 
 
 @pytest.fixture(scope="session")
+def spec_version(spec):
+    """STS API version from OpenAPI ``info.version`` in the bundled spec."""
+    from sts_test_framework.loader import get_info_version
+    return get_info_version(spec)
+
+
+@pytest.fixture(scope="session")
 def base_url():
     """STS API root including ``/v2`` (overridable via ``STS_BASE_URL``)."""
     return sts_base_url()

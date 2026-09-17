@@ -10,6 +10,7 @@ from pathlib import Path
 
 DEFAULT_STS_BASE_URL = "https://sts-qa.cancer.gov/v2"
 DEFAULT_CADSR_BASE_URL = "https://cadsrapi.cancer.gov/rad/NCIAPI/1.0/api"
+DEFAULT_STS_EDP_ORIGIN_NAME = "caDSR"
 
 
 def sts_base_url() -> str:
@@ -32,6 +33,17 @@ def sts_legacy_origin() -> str:
     return base
 
 
+def sts_edp_origin_name() -> str:
+    """
+    Origin (authority) for EDP discovery via ``GET /edps/{originName}``.
+
+    Used by :func:`discover._discover_edp` to find a real EDP defining term for
+    generated positive cases. Override with ``STS_EDP_ORIGIN_NAME`` (e.g. a custom
+    CDE authority) when testing non-caDSR origins.
+    """
+    return os.getenv("STS_EDP_ORIGIN_NAME", DEFAULT_STS_EDP_ORIGIN_NAME)
+
+
 def cadsr_base_url() -> str:
     """
     caDSR REST API root (no trailing path segment).
@@ -49,4 +61,4 @@ def project_root() -> Path:
 
 def bundled_spec_path() -> Path:
     """Path to the bundled OpenAPI spec at the project root (sibling of ``src/``)."""
-    return project_root() / "spec" / "v2-4-0.json"
+    return project_root() / "spec" / "v2-5-0.json"

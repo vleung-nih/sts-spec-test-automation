@@ -25,7 +25,7 @@ ENUM_ITEM_PATTERN = re.compile(r"^    -\s+(.*)$")
 class CDSTermVerify(TermVerifyPipeline):
     model_handle = "CDS"
     csv_prefix = "cds"
-    default_yaml_filename = "cds-model-props-4.yml"
+    default_yaml_filename = "cds-model-props-12.0.0.yml"
     report_subdir = "CDS"
     needs_handle_to_value = False
     query_csv_has_term_value = False
