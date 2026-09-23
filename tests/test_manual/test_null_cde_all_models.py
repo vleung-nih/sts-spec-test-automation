@@ -14,7 +14,7 @@ effect for that property.
 each on its allowed version line(s). A model's latest ``version`` string must **start with** one of
 its allowed prefixes:
 
-- **CDS** — ``11.0.`` or ``12.0.`` (11.0.x / 12.0.x).
+- **CDS** — ``11.0.``, ``12.0.``, or ``13.0.`` (11.0.x / 12.0.x / 13.0.x).
 - **PSDC** — ``1.0.`` (1.0.x, e.g. ``1.0.0-0d4ca14``).
 - **CTDC** — ``3.`` (the whole 3.x line: 3.0.x, 3.1.x, 3.2.x, ...).
 
@@ -58,8 +58,8 @@ TESTS IN THIS FILE (summary)
 - For each property, we ask: "Does this property's PV list contain **every** value from the null
   CDE set?" (same count as the full null CDE set, with each distinct null CDE value appearing at
   least once in the property's PVs).
-- **Passes** if: the only cases where that happens are **CDS** (latest starts with ``11.0.`` or
-  ``12.0.``), **PSDC** (latest starts with ``1.0.``), or **CTDC** (latest starts with ``3.``).
+- **Passes** if: the only cases where that happens are **CDS** (latest starts with ``11.0.``,
+  ``12.0.``, or ``13.0.``), **PSDC** (latest starts with ``1.0.``), or **CTDC** (latest starts with ``3.``).
 - **Fails** if: any **other** model/version has at least one property with that full pattern.
   The failure message lists model, version, and property names so you can investigate.
 
@@ -119,7 +119,8 @@ NULL_CDE_VERSION = "1"
 # to prefix(es) that the model's latest ``version`` string may start with. Prefixes are matched with
 # ``startswith`` rather than substring containment, so e.g. ``1.0.`` does not match ``11.0.4``.
 NULL_CDE_ALLOWED_VERSION_PREFIXES_BY_HANDLE: dict[str, tuple[str, ...]] = {
-    "CDS": ("11.0.", "12.0."),
+    # 13.0.x carries the same useNullCDE properties forward from 11.0.x / 12.0.x.
+    "CDS": ("11.0.", "12.0.", "13.0."),
     "PSDC": ("1.0.",),
     # specimen_type/specimen_category/tissue_category (CTDC-2124), carried forward unchanged from
     # 3.0.0 through 3.2.0, so the whole 3.x line is allowed.
@@ -285,7 +286,7 @@ def _is_expected_null_cde_model(model_handle: str, version: str | None) -> bool:
 def _expected_null_cde_log_tag(model_handle: str) -> str:
     """Short human-readable tag for [expected for ...] log lines."""
     if model_handle == "CDS":
-        return "expected for CDS 11.0.x / 12.0.x"
+        return "expected for CDS 11.0.x / 12.0.x / 13.0.x"
     if model_handle == "PSDC":
         return "expected for PSDC 1.0.x"
     if model_handle == "CTDC":
@@ -299,7 +300,7 @@ def test_no_models_except_allowed_handles_have_full_null_cde_pattern(api_client,
     """
     **Assertion (plain English):** After checking every model at its **latest** version, there
     must be **zero** properties that expose the **full** null CDE value set—**except** when the
-    model is **CDS** (latest starts with ``11.0.`` or ``12.0.``), **PSDC** (latest
+    model is **CDS** (latest starts with ``11.0.``, ``12.0.``, or ``13.0.``), **PSDC** (latest
     starts with ``1.0.``), or **CTDC** (latest starts with ``3.``).
 
     If this test fails, some other model or a disallowed version line has a property that lists
@@ -389,7 +390,7 @@ def test_no_models_except_allowed_handles_have_full_null_cde_pattern(api_client,
             )
 
     assert not unexpected, (
-        "Unexpected: model(s) other than CDS (11.0.x / 12.0.x) / PSDC (1.0.x) / "
+        "Unexpected: model(s) other than CDS (11.0.x / 12.0.x / 13.0.x) / PSDC (1.0.x) / "
         "CTDC (3.x) at latest, or "
         "disallowed version line, with at least one property listing the FULL null CDE value set:\n  - "
         + "\n  - ".join(unexpected)
