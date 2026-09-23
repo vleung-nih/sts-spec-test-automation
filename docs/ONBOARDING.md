@@ -4,12 +4,12 @@ This document explains what the framework does, how it works, how to run it, and
 
 **How to read this document**
 
-- **First day / QA run:** [§1](#1-what-is-sts-and-the-v2-api)–[§2](#2-what-does-this-framework-do), [§3.6](#36-three-runnable-test-suites-overview)–[§3.8](#38-term-by-value-yaml--sts) (what each suite does), **[§5.0](#50-web-test-runner-ui-recommended)** (web UI), [§5.1](#51-prerequisites)–[§5.6](#56-running-all-data-models-in-one-go-multi-model-runner) (skim [§5.7](#57-what-happens-when-you-run-under-the-hood)), [§7.2](#72-which-file-should-i-open).
+- **First day / QA run:** [§1](#1-what-is-sts-and-the-v2-api)–[§2](#2-what-does-this-framework-do), **[§10](#10-edps-for-qa)** (what EDPs are, workflows, how to test), [§3.6](#36-three-runnable-test-suites-overview)–[§3.8](#38-term-by-value-yaml--sts) (what each suite does), **[§5.0](#50-web-test-runner-ui-recommended)** (web UI), [§5.1](#51-prerequisites)–[§5.6](#56-running-all-data-models-in-one-go-multi-model-runner) (skim [§5.7](#57-what-happens-when-you-run-under-the-hood)), [§7.2](#72-which-file-should-i-open).
 - **Scripts and logs (CLI backup):** [§5.8](#58-convenience-shell-scripts), [§3.8](#38-term-by-value-yaml--sts) (term-by-value reference).
 - **Changing or debugging tests:** [§6](#6-how-to-add-or-change-tests), [§9](#9-troubleshooting-and-faq).
 - **Generator internals / edge cases:** [§3.3.1](#331-advanced-pagination-skip-oob-and-reporting-quirks), [§5.7](#57-what-happens-when-you-run-under-the-hood).
 
-Optional deep dives: [pagination, skip-OOB, reporting](#331-advanced-pagination-skip-oob-and-reporting-quirks) · [caDSR & legacy CDE-PVS manual tests](#371-cadsr-and-legacy-cde-pvs-reference) · [EDP & custom CDE manual tests](#372-edp-and-custom-cde-reference)
+Optional deep dives: [pagination, skip-OOB, reporting](#331-advanced-pagination-skip-oob-and-reporting-quirks) · [caDSR & legacy CDE-PVS manual tests](#371-cadsr-and-legacy-cde-pvs-reference) · [EDPs for QA](#10-edps-for-qa) · [EDP pytest cookbook](#372-edp-and-custom-cde-reference)
 
 ---
 
@@ -24,6 +24,7 @@ Optional deep dives: [pagination, skip-OOB, reporting](#331-advanced-pagination-
 7. [Reports and CI](#7-reports-and-ci)
 8. [Glossary](#8-glossary)
 9. [Troubleshooting and FAQ](#9-troubleshooting-and-faq)
+10. [EDPs for QA](#10-edps-for-qa)
 
 ---
 
@@ -31,7 +32,7 @@ Optional deep dives: [pagination, skip-OOB, reporting](#331-advanced-pagination-
 
 **STS** stands for **Simple Terminology Server**. It is a web API that exposes data models (e.g. for cancer research) in a consistent way. The data is stored in a graph database (Neo4j) and described as **nodes**, **properties**, **terms**, and **tags**. The API lets clients ask things like: “What models exist?”, “What nodes does this model have?”, “What are the allowed values (terms) for this property?”.
 
-The **v2 API** is the second version of this interface. It is **read-only**: all endpoints use the **GET** method. There is no login in the spec (no API keys or tokens for normal use). The API is documented in an **OpenAPI** specification file (`spec/v2-5-0.json`), which lists every URL path, its parameters, and the expected response shapes.
+The **v2 API** is the second version of this interface. It is **read-only**: all endpoints use the **GET** method. There is no login in the spec (no API keys or tokens for normal use). The API is documented in an **OpenAPI** specification file (`spec/v2-6-0.json`), which lists every URL path, its parameters, and the expected response shapes.
 
 **Why we test it:** Before releasing changes to STS, we need to confirm that every documented endpoint behaves as the spec says (right status codes, right response shape). This framework automates that checking.
 
@@ -41,7 +42,7 @@ The **v2 API** is the second version of this interface. It is **read-only**: all
 
 At a high level, the framework does four things:
 
-1. **Reads the API contract** – It loads the OpenAPI spec (`spec/v2-5-0.json`) so it knows every endpoint, its parameters, and expected responses.
+1. **Reads the API contract** – It loads the OpenAPI spec (`spec/v2-6-0.json`) so it knows every endpoint, its parameters, and expected responses.
 2. **Gets real data from the API** – It calls the live API once to “discover” real IDs and names (e.g. a model handle, a node handle, a tag). That discovery data is used to build valid requests for each endpoint.
 3. **Generates test cases** – For each endpoint in the spec, it creates at least one “positive” test (expects 200 OK) and, where the spec says so, one “negative” test (expects 404 or 422 for bad input).
 4. **Runs the tests and reports** – It sends HTTP requests for each generated case, checks status codes and basic response shape, and writes a **JSON** and **HTML** report with pass/fail and timing.
@@ -60,7 +61,7 @@ OpenAPI mechanics and discovery are in §3.1–§3.5; **runnable suites** and re
 
 ### 3.1 OpenAPI spec (the “spec”)
 
-The **OpenAPI** (formerly Swagger) specification is a standard way to describe a REST API. The file `spec/v2-5-0.json` contains:
+The **OpenAPI** (formerly Swagger) specification is a standard way to describe a REST API. The file `spec/v2-6-0.json` contains:
 
 - **Paths** – Each URL pattern (e.g. `/v2/models/`, `/v2/id/{id}`).
 - **Operations** – For each path, the HTTP method (here, only GET) and:
@@ -241,6 +242,8 @@ Manual caDSR `GET /DataElement/{publicId}` calls retry transient failures (conne
 
 ### 3.7.2 EDP and custom CDE (reference)
 
+Concepts, MDB/STS flow, GitHub Actions, and what to test: **[§10 EDPs for QA](#10-edps-for-qa)**. This subsection is the pytest cookbook only.
+
 Skip unless you run or debug EDP manual modules.
 
 Manual tests complement **generated** EDP smoke coverage (discovery via ``STS_EDP_ORIGIN_NAME``; see [§6.2](#62-changing-what-gets-discovered)). Generated cases check HTTP status and pagination; manual cases pin **origin/id/version** triples and assert **PV `value`** parity (unique labels vs each cde-pvs wrapper for caDSR; multiset vs pinned/YAML for custom CDEs).
@@ -330,7 +333,7 @@ These verification pipelines are **not** pytest and **not** the OpenAPI-generate
 | `c3dc-model-props.yml`              | `python tests/term_verify/c3dc_term_verify.py`     | `reports/term_value/C3DC/`     |
 | `ctdc_model_properties_file-2.yaml` | `python tests/term_verify/ctdc_term_verify.py`     | `reports/term_value/CTDC/`     |
 | `icdc-model-props.yml`              | `python tests/term_verify/icdc_term_verify.py`     | `reports/term_value/ICDC/`     |
-| `cds-model-props-12.0.0.yml`        | `python tests/term_verify/cds_term_verify.py`      | `reports/term_value/CDS/`      |
+| `cds-model-props-13.0.0.yml`        | `python tests/term_verify/cds_term_verify.py`      | `reports/term_value/CDS/`      |
 | `ccdi-dcc-model-props-5.yml`        | `python tests/term_verify/ccdi_dcc_term_verify.py` | `reports/term_value/CCDI-DCC/` |
 
 
@@ -457,7 +460,8 @@ sts-spec-test-automation/
 │   └── templates/
 │       └── index.html        # Test runner UI (single page + SSE client)
 ├── spec/
-│   ├── v2-5-0.json           # Bundled OpenAPI spec (default; STS v2 contract)
+│   ├── v2-6-0.json           # Bundled OpenAPI spec (default; STS v2 contract)
+│   ├── v2-5-0.json           # Earlier snapshot (reference only)
 │   ├── v2-4-0.json           # Earlier snapshot (reference only)
 │   └── v2.json               # Earlier snapshot (reference only)
 ├── src/sts_test_framework/   # Main framework code
@@ -776,7 +780,7 @@ The CLI loads the spec, runs discovery, generates cases, runs them, and **always
 python -m sts_test_framework.cli
 ```
 
-Defaults: spec = `spec/v2-5-0.json`, base URL = `STS_BASE_URL` or `https://sts-qa.cancer.gov/v2` (same default as `DEFAULT_STS_BASE_URL` in [sts_test_framework/config.py](../src/sts_test_framework/config.py)), report dir = `reports/`. For **prod**, **stage**, or **local**, set `STS_BASE_URL` or pass `--base-url` (see [§5.2](#52-configuration-environment-variables)).
+Defaults: spec = `spec/v2-6-0.json`, base URL = `STS_BASE_URL` or `https://sts-qa.cancer.gov/v2` (same default as `DEFAULT_STS_BASE_URL` in [sts_test_framework/config.py](../src/sts_test_framework/config.py)), report dir = `reports/`. For **prod**, **stage**, or **local**, set `STS_BASE_URL` or pass `--base-url` (see [§5.2](#52-configuration-environment-variables)).
 
 **Example:** Your CI job runs after every deploy. You run `python -m sts_test_framework.cli --report reports/` and publish `reports/report.html` as an artifact so the team can open it and see which endpoints passed or failed. You don’t need pytest in that job—just the CLI and the report files.
 
@@ -784,7 +788,7 @@ Defaults: spec = `spec/v2-5-0.json`, base URL = `STS_BASE_URL` or `https://sts-q
 
 ```bash
 # Custom spec and base URL
-python -m sts_test_framework.cli --spec spec/v2-5-0.json --base-url https://sts.cancer.gov/v2
+python -m sts_test_framework.cli --spec spec/v2-6-0.json --base-url https://sts.cancer.gov/v2
 
 # Write reports to a specific folder
 python -m sts_test_framework.cli --report reports/
@@ -843,7 +847,7 @@ Whether you use **pytest** or the **CLI**, the same pipeline runs: load spec →
 
 **Short summary:**
 
-1. **Load spec** – Read `spec/v2-5-0.json` (or the path you gave); parse as JSON or YAML into a dict with paths and schemas.
+1. **Load spec** – Read `spec/v2-6-0.json` (or the path you gave); parse as JSON or YAML into a dict with paths and schemas.
 2. **Create client** – HTTP client with the chosen base URL (and optional SSL verify from env).
 3. **Discovery** – GET models → nodes → properties → terms, GET tags; build `test_data` with real handles and IDs.
 4. **Generate cases** – For each GET operation in the spec, build positive (200) and optionally negative (404/422) cases using `test_data`.
@@ -856,7 +860,7 @@ A more detailed breakdown of each step is below.
 
 #### Step 1: Load the spec
 
-- **What happens:** The framework reads the spec file from disk (e.g. `spec/v2-5-0.json`). The file may be JSON or YAML; the loader tries to parse it as JSON first, then falls back to YAML if needed.
+- **What happens:** The framework reads the spec file from disk (e.g. `spec/v2-6-0.json`). The file may be JSON or YAML; the loader tries to parse it as JSON first, then falls back to YAML if needed.
 - **Result:** A Python dictionary with at least:
   - `paths` – each key is a path template (e.g. `/v2/models/`, `/v2/id/{id}`); each value describes the HTTP methods and their parameters and responses.
   - `components.schemas` – reusable response/request body schemas (e.g. `Model`, `Node`, `Entity`).
@@ -1056,7 +1060,7 @@ Example:
     STS_BASE_URL: ${{ vars.STS_BASE_URL }}
   run: |
     pip install -e .
-    python -m sts_test_framework.cli --spec spec/v2-5-0.json --report reports/
+    python -m sts_test_framework.cli --spec spec/v2-6-0.json --report reports/
 ```
 
 Or run pytest and optionally run the CLI for reports:
@@ -1109,18 +1113,24 @@ This suite is **not** included in `run_full_suite.sh`.
 
 - **API** – Application Programming Interface; here, the HTTP API of the STS server.
 - **Base URL** – The root URL of the STS v2 API including `/v2` (default in tests: `https://sts-qa.cancer.gov/v2`; prod example: `https://sts.cancer.gov/v2`). All request paths are appended to this.
+- **caDSR EDP** – An EDP whose `origin_name` is `caDSR`. PVs are also available on the legacy `cde-pvs` route. Compare unique PV labels per wrapper, not a flattened multiset of wrappers.
+- **cde-pvs** – Legacy STS route `GET /terms/cde-pvs/{id}/{version}/pvs`. Returns CDE permissible values, sometimes as multiple wrappers with the same labels. Used for caDSR parity with `/edp/.../terms`; not used for CRDC custom EDPs.
+- **CRDC EDP** – A custom EDP with `origin_name` `CRDC` (e.g. CRDC0001 Uberon, CRDC0002 OBIB, CRDC0003 ICD-O). Served only on `/edps` and `/edp/.../terms`, not on `cde-pvs`.
 - **Discovery** – The one-time process of calling the API to get real IDs and values (model handle, node handle, tag key/value, etc.) used to build test requests.
+- **EDP** – Extended Definition Property. A named, versioned permissible-value list stored in MDB and exposed by STS, so models can share large vocabularies instead of copying every value into MDF. Identified by `origin_name` + `origin_id` + `origin_version`. See [§10](#10-edps-for-qa).
 - **Endpoint** – One path + method combination (e.g. GET `/v2/models/`).
 - **Fixture** – In pytest, a reusable piece of setup (e.g. `api_client`, `test_data`) provided to test functions by name.
 - **Generator** – The code that turns the OpenAPI spec plus discovery data into a list of **test cases** (path, params, expected status, etc.).
 - **Negative test** – A test that sends invalid or missing input and expects an error response (404 or 422).
 - **OpenAPI** – A standard format (YAML/JSON) for describing REST APIs (paths, parameters, responses, schemas).
+- **origin_name / origin_id / origin_version** – The three-part identity of an EDP (and of caDSR CDEs). Example: `CRDC` / `CRDC0002` / `1`. The version string must match MDB exactly (`2.0` is not `2.00`).
 - **Operation** – One HTTP method on one path in the spec (e.g. GET `/v2/id/{id}`).
 - **Path parameter** – A part of the URL that varies (e.g. `{id}` in `/v2/id/{id}`). Values come from discovery or are faked for negative tests.
 - **Positive test** – A test that sends valid input and expects success (200).
+- **PV** – Permissible value. One allowed string for a property (the Term `value` on `/edp/.../terms` or on a property `/terms` list).
 - **Query parameter** – Key-value in the URL after `?` (e.g. `skip=0`, `limit=10`).
 - **Schema** – In OpenAPI, the description of a response body (e.g. “object with fields nanoid, handle, version”). Used for contract validation.
-- **Spec** – The OpenAPI specification file (`spec/v2-5-0.json`); the “contract” of the API.
+- **Spec** – The OpenAPI specification file (`spec/v2-6-0.json`); the “contract” of the API.
 - **Tag** – In OpenAPI, a label on an operation (e.g. `id`, `model`, `models`). Used to group endpoints and to filter which tests to run (`--tags`).
 - **test_data** – The dictionary produced by discovery (model_handle, node_handle, etc.) used to fill path and query parameters when generating cases.
 
@@ -1158,7 +1168,193 @@ This suite is **not** included in `run_full_suite.sh`.
 
 **Where do I document our team’s conventions?**
 
-- Use this ONBOARDING.md for how the framework works and how to maintain it. Use the README for quick start (web UI first, then CLI), install, and high-level purpose.
+- Use this ONBOARDING.md for how the framework works and how to maintain it. Use the README for quick start (web UI first, then CLI), install, and high-level purpose. For EDPs (what they are, MDB/STS flow, and what to test), see [§10](#10-edps-for-qa).
+
+---
+
+## 10. EDPs for QA
+
+This section is for testers who already know STS and MDB orientation ([§1](#1-what-is-sts-and-the-v2-api)) but have not worked with EDPs. It explains what they are, how they land in the graph, which GitHub Actions matter, and what QA actually checks.
+
+How to **run** the pytest modules is in [§3.7.2](#372-edp-and-custom-cde-reference). Jira step tables stay in the DATATEAM primers.
+
+### 10.1 What an EDP is
+
+**EDP** means **Extended Definition Property**. It is a named, versioned list of **permissible values (PVs)** stored in MDB and served by STS.
+
+Models used to copy every allowed string into MDF (`Enum:` with hundreds or thousands of lines). That does not scale for vocabularies such as Uberon (~12k terms), OBIB, or ICD-O. An EDP holds that list **once** in MDB. A model property can **point at** the EDP instead of duplicating the list.
+
+Each EDP is identified by three fields:
+
+| Field | Meaning | Example |
+|-------|---------|---------|
+| `origin_name` | Authority | `CRDC` or `caDSR` |
+| `origin_id` | Code | `CRDC0002` or `7572817` |
+| `origin_version` | Version of **that** list | `1` or `2.0` |
+
+CRDC custom IDs are `CRDC` plus digits, **no underscore** (`CRDC0001`, not `CRDC_0001`).
+
+Pinned CRDC EDPs used in QA:
+
+| origin_id | origin_version | What it is | Approx. PV count |
+|-----------|----------------|------------|------------------|
+| CRDC0001 | 1 | Uberon | ~12,854 |
+| CRDC0002 | 1 | OBIB (specimen) | 128 |
+| CRDC0003 | 3.2 | ICD-O morphology | 1,183 |
+| CRDC0005 | 1 | QA-only test EDP | small; not for production |
+
+### 10.2 How it sits in MDB (QA-level)
+
+In Neo4j the shape is:
+
+- a **defining term** (the EDP itself)
+- a **value_set**
+- **PV terms** (each allowed string)
+
+`(edp:term)-[:specifies_value_set]->(vs:value_set)-[:has_term]->(pv:term)`
+
+STS does not invent this list. `GET /edp/{origin}/{id}/{version}/terms` reads that value set. **HTTP 404** on that path means the triple is not in the graph **for that environment** (not loaded, not promoted, or version string does not match).
+
+### 10.3 Two kinds of EDP (do not mix them)
+
+| Kind | `origin_name` | STS catalog | PV list | Legacy `cde-pvs` |
+|------|----------------|-------------|---------|------------------|
+| caDSR | `caDSR` | `GET /edps/caDSR` | `GET /edp/caDSR/{id}/{ver}/terms` | Yes — same unique PV **labels** |
+| CRDC custom | `CRDC` | `GET /edps/CRDC` | `GET /edp/CRDC/{id}/{ver}/terms` | **No** — EDP-only |
+
+**MDF `Term:` vs `Enum:`** — this is the most common QA mistake.
+
+| MDF section | What it is | Used for submitter validation? |
+|-------------|------------|--------------------------------|
+| **`Term:`** | Metadata: which CDE/EDP *describes* the property | No |
+| **`Enum:`** (term-ref) | Pull the PV list from MDB/STS | **Yes** |
+
+Only `Enum:` with `Origin` + `Code` + `Version` consumes an EDP for validation. `Term: Origin: CRDC` alone is not EDP consumption. Ignore Test MDF placeholders (fake codes such as `weight123`).
+
+Example **Enum** that *does* consume CRDC0002:
+
+```yaml
+Enum:
+  - Origin: CRDC
+    Code: CRDC0002
+    Version: "1"
+    Value: obib value set reference
+```
+
+### 10.4 STS surface (v2.6.0)
+
+EDP routes shipped with STS **API version 2.6.0** (`spec/v2-6-0.json`). That version string is the **product/API** release. The **container image** on an environment can be more specific than that version string. `GET /v2` today reports name, version, and status — **not** the image tag. When promoting QA → Stage → Prod, compare the image in ECS/ECR as well as API version. See [§10.7](#107-what-qa-tests).
+
+**Environments**
+
+| Environment | Base URL |
+|-------------|----------|
+| QA | `https://sts-qa.cancer.gov/v2` |
+| Stage | `https://sts-stage.cancer.gov/v2` |
+| Prod | `https://sts.cancer.gov/v2` |
+
+**Endpoints**
+
+| Path | What it returns |
+|------|-----------------|
+| `GET /edps/{originName}` | Catalog of defining terms for that origin |
+| `GET /edp/{originName}/{originId}/{originVersion}/terms` | PV list for one EDP |
+| `GET /model/.../node/.../property/.../terms` | PVs for a **model property** (inline enum, caDSR, or EDP-backed after ingest) |
+| `GET /terms/cde-pvs/{id}/{version}/pvs` | Legacy caDSR CDE PVs (wrappers) |
+
+Examples:
+
+```
+GET https://sts-qa.cancer.gov/v2/edps/CRDC?limit=999999
+GET https://sts-qa.cancer.gov/v2/edp/CRDC/CRDC0002/1/terms?limit=999999
+GET https://sts-qa.cancer.gov/v2/edp/caDSR/7572817/2.0/terms
+```
+
+Use the **exact** version string MDB stored. `2.0` vs `2.00` is a miss (empty `cde-pvs` or EDP 404).
+
+**caDSR parity rule:** each `cde-pvs` **wrapper’s** unique PV `value` set must equal the EDP unique `value` set. Do **not** concatenate wrappers into a multiset (one CDE can have two wrappers with the same labels). NCIt/synonym rows are ignored for that set compare.
+
+### 10.5 Workflow A — load an EDP into MDB
+
+This is how CRDC000x lists get into the graph. QA does **not** run changelog scripts; QA watches Actions and then hits STS.
+
+```mermaid
+flowchart TD
+  subgraph define [Define]
+    bentoEdps["bento-edps YAML"]
+  end
+  subgraph load [Load into MDB]
+    checkNew["Check New EDPs"]
+    genCl["Generate EDP Changelog"]
+    applyDev["Apply to CloudOne Dev"]
+    promote["Dev to QA to Stage to Prod"]
+  end
+  subgraph serve [Serve]
+    sts["STS /edps and /edp/terms"]
+  end
+  bentoEdps --> checkNew --> genCl --> applyDev --> promote --> sts
+```
+
+1. Authors commit the EDP in the **bento-edps** repo (`edp-props.yml` plus a `terms/*.yml` file). `Ext: true` marks it as an EDP.
+2. **bento-mdb** workflow **Check New EDPs** polls that repo and updates `config/mdb_edps.yml` when a new version appears.
+3. **Generate EDP Changelog** builds changelog XML (defining term, value_set, PV terms) and uploads it to S3.
+4. Apply runs against **CloudOne Dev** MDB (Prefect / changelog runner — same family as other MDB applies).
+5. **Data promotion** copies the graph Dev → QA, then QA → Stage → Prod (see the [promotion guide](../../docs/DATA_PROMOTION_QA_GUIDE.md)).
+
+After promotion, confirm on that environment’s STS: catalog row on `/edps/CRDC` and a 200 PV list on `/edp/CRDC/{id}/{ver}/terms`.
+
+Removing a PV from YAML does **not** yet delete it from MDB. The list in GitHub will stop adding new references; old terms can remain in the graph until a delete path exists.
+
+### 10.6 Workflow B — a model uses an EDP
+
+```mermaid
+flowchart TD
+  mdf["Model MDF Enum points at EDP"]
+  ingest["Model ingest links property to EDP value_set"]
+  sts["STS property /terms and /edp/terms"]
+  portal["Data Hub / portal validates TSV"]
+  mdf --> ingest --> sts --> portal
+```
+
+1. A commons MDF property sets **`Enum:`** to the EDP triple (not only `Term:`).
+2. Model ingest (Trigger / Generate / Update **Models** workflows) loads that version. The property is linked to the **shared** EDP value_set rather than a private copy of thousands of strings.
+3. `GET /model/{handle}/version/{ver}/node/{node}/property/{prop}/terms` should return the **same PV value set** as `GET /edp/.../terms` for that EDP.
+4. Submission Portal / Data Hub validation uses that list: a TSV value in the EDP passes; a value not in the EDP fails.
+
+**Current gap (DATATEAM-500 Phase C):** full portal E2E still needs an **intentional** commons property with `Enum → CRDC000x`. Until that ships, prove STS catalog/PVs (workflow A + [§10.7](#107-what-qa-tests)) and do not treat Test MDF `Term:` placeholders as E2E evidence.
+
+When a model **does** ingest with EDP Enum, QA style is the same as other MDB work: GHA / Prefect / S3 → Neo4j optional → STS → portal. Do not run local `bento-mdf` unit tests for sign-off.
+
+### 10.7 What QA tests
+
+Do not duplicate Jira tables here. Map the work, then open the primer for steps.
+
+| Layer | What you prove | Where |
+|-------|----------------|--------|
+| STS API (DATATEAM-555) | `/edps` and `/edp/.../terms` return the right catalog and PVs from MDB; caDSR unique labels match each `cde-pvs` wrapper | Primer + 555 cases; this framework |
+| Generated suite | EDP paths exist, 200, pagination / skip-OOB / negatives | Spec + discovery (`STS_EDP_ORIGIN_NAME`, default `caDSR`) — [§6.2](#62-changing-what-gets-discovered) |
+| Manual pytest | Pinned triples, PV snapshots, listing uniqueness | [§3.7.2](#372-edp-and-custom-cde-reference) |
+| Model + portal (DATATEAM-500) | After Enum→EDP ingest: property `/terms` ≈ EDP; valid PV passes portal; invalid fails | Lean 500 cases; **blocked** until a real Enum→CRDC model |
+| Promotion | Same EDP triple on QA, then Stage, then Prod | [Promotion guide](../../docs/DATA_PROMOTION_QA_GUIDE.md) |
+
+**Framework commands** (details in §3.7.2):
+
+- `edp_cadsr_parity` — caDSR EDP vs `cde-pvs` unique-set compare
+- `edp_custom_cde` — CRDC0001 / 0002 / 0003 vs snapshots or inline expected PVs
+- `edp_edps_unique` — `/edps/{origin}` listing key uniqueness (caDSR allowlist; CRDC must be unique)
+
+**Promotion note:** API `version` `2.6.0` can be the same on every tier while the **image** differs. Record the ECS/ECR image tag for the STS FastAPI service you signed off on QA, and confirm Stage/Prod received that image. The public `/v2` body does not yet expose the image tag.
+
+### 10.8 Pitfalls
+
+- **Listing duplicates vs graph duplicates.** `/edps/{origin}` is keyed by `(origin_id, origin_version)`. MDB terms are unique on `(origin_name, origin_id, origin_version, value)`. A few caDSR triples can appear twice in the listing without being redundant term nodes (`edp_edps_unique` allowlist). New unexpected duplicates still fail. CRDC listings must stay unique.
+- **ICD-O labels.** CRDC0003 may repeat the same display `value`. Tests allow that (`allow_duplicate_pv_values`).
+- **`Ext: true`.** Required on the EDP definition and on a model property that references an EDP.
+- **Test MDF is not proof.** Fake `Term: Origin: CRDC` codes are not Enum→EDP consumption.
+- **YAML delete ≠ graph delete.** Removing a PV from bento-edps does not automatically detach it in MDB.
+- **Version string exactness.** Pin what MDB has, including `3.2` vs `3.20`.
+- **caDSR wrappers.** Two wrappers with the same ~950 PVs are not a duplicate-PV product bug; compare each wrapper’s unique set to EDP.
+
 
 ---
 
