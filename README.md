@@ -12,6 +12,7 @@ The framework treats the OpenAPI spec document STS is built on (`spec/v2-6-0.jso
 | Doc                                      | Use it for                                                                                                         |
 | ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
 | [docs/ONBOARDING.md](docs/ONBOARDING.md) | Overview, design, project layout, env vars, extending tests, reports/CI.                                           |
+| [docs/EDP_MDB_STS.md](docs/EDP_MDB_STS.md) | **EDPs:** what they are, MDB graph, Term vs Enum, STS routes, pipelines, TEST model.                              |
 | [docs/RUNBOOK.md](docs/RUNBOOK.md)       | **CLI/script backup:** command checklist, script extras, pytest forwarding. Prefer the web UI for day-to-day runs. |
 
 

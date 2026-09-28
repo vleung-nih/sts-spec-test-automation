@@ -4,12 +4,12 @@ This document explains what the framework does, how it works, how to run it, and
 
 **How to read this document**
 
-- **First day / QA run:** [§1](#1-what-is-sts-and-the-v2-api)–[§2](#2-what-does-this-framework-do), **[§10](#10-edps-for-qa)** (what EDPs are, workflows, how to test), [§3.6](#36-three-runnable-test-suites-overview)–[§3.8](#38-term-by-value-yaml--sts) (what each suite does), **[§5.0](#50-web-test-runner-ui-recommended)** (web UI), [§5.1](#51-prerequisites)–[§5.6](#56-running-all-data-models-in-one-go-multi-model-runner) (skim [§5.7](#57-what-happens-when-you-run-under-the-hood)), [§7.2](#72-which-file-should-i-open).
+- **First day / QA run:** [§1](#1-what-is-sts-and-the-v2-api)–[§2](#2-what-does-this-framework-do), **[EDP_MDB_STS.md](EDP_MDB_STS.md)** (what EDPs are; Term vs Enum; `/terms` vs `/edp`), [§3.6](#36-three-runnable-test-suites-overview)–[§3.8](#38-term-by-value-yaml--sts) (what each suite does), **[§5.0](#50-web-test-runner-ui-recommended)** (web UI), [§5.1](#51-prerequisites)–[§5.6](#56-running-all-data-models-in-one-go-multi-model-runner) (skim [§5.7](#57-what-happens-when-you-run-under-the-hood)), [§7.2](#72-which-file-should-i-open).
 - **Scripts and logs (CLI backup):** [§5.8](#58-convenience-shell-scripts), [§3.8](#38-term-by-value-yaml--sts) (term-by-value reference).
 - **Changing or debugging tests:** [§6](#6-how-to-add-or-change-tests), [§9](#9-troubleshooting-and-faq).
 - **Generator internals / edge cases:** [§3.3.1](#331-advanced-pagination-skip-oob-and-reporting-quirks), [§5.7](#57-what-happens-when-you-run-under-the-hood).
 
-Optional deep dives: [pagination, skip-OOB, reporting](#331-advanced-pagination-skip-oob-and-reporting-quirks) · [caDSR & legacy CDE-PVS manual tests](#371-cadsr-and-legacy-cde-pvs-reference) · [EDPs for QA](#10-edps-for-qa) · [EDP pytest cookbook](#372-edp-and-custom-cde-reference)
+Optional deep dives: [pagination, skip-OOB, reporting](#331-advanced-pagination-skip-oob-and-reporting-quirks) · [caDSR & legacy CDE-PVS manual tests](#371-cadsr-and-legacy-cde-pvs-reference) · [EDPs (MDB + STS)](EDP_MDB_STS.md) · [EDP pytest cookbook](#372-edp-and-custom-cde-reference)
 
 ---
 
@@ -24,7 +24,7 @@ Optional deep dives: [pagination, skip-OOB, reporting](#331-advanced-pagination-
 7. [Reports and CI](#7-reports-and-ci)
 8. [Glossary](#8-glossary)
 9. [Troubleshooting and FAQ](#9-troubleshooting-and-faq)
-10. [EDPs for QA](#10-edps-for-qa)
+10. [EDPs](#10-edps) — full guide: [EDP_MDB_STS.md](EDP_MDB_STS.md)
 
 ---
 
@@ -242,7 +242,7 @@ Manual caDSR `GET /DataElement/{publicId}` calls retry transient failures (conne
 
 ### 3.7.2 EDP and custom CDE (reference)
 
-Concepts, MDB/STS flow, GitHub Actions, and what to test: **[§10 EDPs for QA](#10-edps-for-qa)**. This subsection is the pytest cookbook only.
+Concepts, MDB/STS flow, Term vs Enum, STS routes, GitHub Actions, and TEST model examples: **[EDP_MDB_STS.md](EDP_MDB_STS.md)**. This subsection is the pytest cookbook only.
 
 Skip unless you run or debug EDP manual modules.
 
@@ -1117,7 +1117,7 @@ This suite is **not** included in `run_full_suite.sh`.
 - **cde-pvs** – Legacy STS route `GET /terms/cde-pvs/{id}/{version}/pvs`. Returns CDE permissible values, sometimes as multiple wrappers with the same labels. Used for caDSR parity with `/edp/.../terms`; not used for CRDC custom EDPs.
 - **CRDC EDP** – A custom EDP with `origin_name` `CRDC` (e.g. CRDC0001 Uberon, CRDC0002 OBIB, CRDC0003 ICD-O). Served only on `/edps` and `/edp/.../terms`, not on `cde-pvs`.
 - **Discovery** – The one-time process of calling the API to get real IDs and values (model handle, node handle, tag key/value, etc.) used to build test requests.
-- **EDP** – Extended Definition Property. A named, versioned permissible-value list stored in MDB and exposed by STS, so models can share large vocabularies instead of copying every value into MDF. Identified by `origin_name` + `origin_id` + `origin_version`. See [§10](#10-edps-for-qa).
+- **EDP** – Extended Definition Property. A named, versioned permissible-value list stored in MDB and exposed by STS, so models can share large vocabularies instead of copying every value into MDF. Identified by `origin_name` + `origin_id` + `origin_version`. See [EDP_MDB_STS.md](EDP_MDB_STS.md).
 - **Endpoint** – One path + method combination (e.g. GET `/v2/models/`).
 - **Fixture** – In pytest, a reusable piece of setup (e.g. `api_client`, `test_data`) provided to test functions by name.
 - **Generator** – The code that turns the OpenAPI spec plus discovery data into a list of **test cases** (path, params, expected status, etc.).
@@ -1168,192 +1168,15 @@ This suite is **not** included in `run_full_suite.sh`.
 
 **Where do I document our team’s conventions?**
 
-- Use this ONBOARDING.md for how the framework works and how to maintain it. Use the README for quick start (web UI first, then CLI), install, and high-level purpose. For EDPs (what they are, MDB/STS flow, and what to test), see [§10](#10-edps-for-qa).
+- Use this ONBOARDING.md for how the framework works and how to maintain it. Use the README for quick start (web UI first, then CLI), install, and high-level purpose. For EDPs (what they are, Term vs Enum, MDB/STS flow), see [EDP_MDB_STS.md](EDP_MDB_STS.md). The pytest cookbook is [§3.7.2](#372-edp-and-custom-cde-reference).
 
 ---
 
-## 10. EDPs for QA
+## 10. EDPs
 
-This section is for testers who already know STS and MDB orientation ([§1](#1-what-is-sts-and-the-v2-api)) but have not worked with EDPs. It explains what they are, how they land in the graph, which GitHub Actions matter, and what QA actually checks.
+The end-to-end MDB + STS guide (what an EDP is, graph shape, Term vs Enum, STS routes, pipelines, TEST model examples) is **[EDP_MDB_STS.md](EDP_MDB_STS.md)**.
 
 How to **run** the pytest modules is in [§3.7.2](#372-edp-and-custom-cde-reference). Jira step tables stay in the DATATEAM primers.
-
-### 10.1 What an EDP is
-
-**EDP** means **Extended Definition Property**. It is a named, versioned list of **permissible values (PVs)** stored in MDB and served by STS.
-
-Models used to copy every allowed string into MDF (`Enum:` with hundreds or thousands of lines). That does not scale for vocabularies such as Uberon (~12k terms), OBIB, or ICD-O. An EDP holds that list **once** in MDB. A model property can **point at** the EDP instead of duplicating the list.
-
-Each EDP is identified by three fields:
-
-| Field | Meaning | Example |
-|-------|---------|---------|
-| `origin_name` | Authority | `CRDC` or `caDSR` |
-| `origin_id` | Code | `CRDC0002` or `7572817` |
-| `origin_version` | Version of **that** list | `1` or `2.0` |
-
-CRDC custom IDs are `CRDC` plus digits, **no underscore** (`CRDC0001`, not `CRDC_0001`).
-
-Pinned CRDC EDPs used in QA:
-
-| origin_id | origin_version | What it is | Approx. PV count |
-|-----------|----------------|------------|------------------|
-| CRDC0001 | 1 | Uberon | ~12,854 |
-| CRDC0002 | 1 | OBIB (specimen) | 128 |
-| CRDC0003 | 3.2 | ICD-O morphology | 1,183 |
-| CRDC0005 | 1 | QA-only test EDP | small; not for production |
-
-### 10.2 How it sits in MDB (QA-level)
-
-In Neo4j the shape is:
-
-- a **defining term** (the EDP itself)
-- a **value_set**
-- **PV terms** (each allowed string)
-
-`(edp:term)-[:specifies_value_set]->(vs:value_set)-[:has_term]->(pv:term)`
-
-STS does not invent this list. `GET /edp/{origin}/{id}/{version}/terms` reads that value set. **HTTP 404** on that path means the triple is not in the graph **for that environment** (not loaded, not promoted, or version string does not match).
-
-### 10.3 Two kinds of EDP (do not mix them)
-
-| Kind | `origin_name` | STS catalog | PV list | Legacy `cde-pvs` |
-|------|----------------|-------------|---------|------------------|
-| caDSR | `caDSR` | `GET /edps/caDSR` | `GET /edp/caDSR/{id}/{ver}/terms` | Yes — same unique PV **labels** |
-| CRDC custom | `CRDC` | `GET /edps/CRDC` | `GET /edp/CRDC/{id}/{ver}/terms` | **No** — EDP-only |
-
-**MDF `Term:` vs `Enum:`** — this is the most common QA mistake.
-
-| MDF section | What it is | Used for submitter validation? |
-|-------------|------------|--------------------------------|
-| **`Term:`** | Metadata: which CDE/EDP *describes* the property | No |
-| **`Enum:`** (term-ref) | Pull the PV list from MDB/STS | **Yes** |
-
-Only `Enum:` with `Origin` + `Code` + `Version` consumes an EDP for validation. `Term: Origin: CRDC` alone is not EDP consumption. Ignore Test MDF placeholders (fake codes such as `weight123`).
-
-Example **Enum** that *does* consume CRDC0002:
-
-```yaml
-Enum:
-  - Origin: CRDC
-    Code: CRDC0002
-    Version: "1"
-    Value: obib value set reference
-```
-
-### 10.4 STS surface (v2.6.0)
-
-EDP routes shipped with STS **API version 2.6.0** (`spec/v2-6-0.json`). That version string is the **product/API** release. The **container image** on an environment can be more specific than that version string. `GET /v2` today reports name, version, and status — **not** the image tag. When promoting QA → Stage → Prod, compare the image in ECS/ECR as well as API version. See [§10.7](#107-what-qa-tests).
-
-**Environments**
-
-| Environment | Base URL |
-|-------------|----------|
-| QA | `https://sts-qa.cancer.gov/v2` |
-| Stage | `https://sts-stage.cancer.gov/v2` |
-| Prod | `https://sts.cancer.gov/v2` |
-
-**Endpoints**
-
-| Path | What it returns |
-|------|-----------------|
-| `GET /edps/{originName}` | Catalog of defining terms for that origin |
-| `GET /edp/{originName}/{originId}/{originVersion}/terms` | PV list for one EDP |
-| `GET /model/.../node/.../property/.../terms` | PVs for a **model property** (inline enum, caDSR, or EDP-backed after ingest) |
-| `GET /terms/cde-pvs/{id}/{version}/pvs` | Legacy caDSR CDE PVs (wrappers) |
-
-Examples:
-
-```
-GET https://sts-qa.cancer.gov/v2/edps/CRDC?limit=999999
-GET https://sts-qa.cancer.gov/v2/edp/CRDC/CRDC0002/1/terms?limit=999999
-GET https://sts-qa.cancer.gov/v2/edp/caDSR/7572817/2.0/terms
-```
-
-Use the **exact** version string MDB stored. `2.0` vs `2.00` is a miss (empty `cde-pvs` or EDP 404).
-
-**caDSR parity rule:** each `cde-pvs` **wrapper’s** unique PV `value` set must equal the EDP unique `value` set. Do **not** concatenate wrappers into a multiset (one CDE can have two wrappers with the same labels). NCIt/synonym rows are ignored for that set compare.
-
-### 10.5 Workflow A — load an EDP into MDB
-
-This is how CRDC000x lists get into the graph. QA does **not** run changelog scripts; QA watches Actions and then hits STS.
-
-```mermaid
-flowchart TD
-  subgraph define [Define]
-    bentoEdps["bento-edps YAML"]
-  end
-  subgraph load [Load into MDB]
-    checkNew["Check New EDPs"]
-    genCl["Generate EDP Changelog"]
-    applyDev["Apply to CloudOne Dev"]
-    promote["Dev to QA to Stage to Prod"]
-  end
-  subgraph serve [Serve]
-    sts["STS /edps and /edp/terms"]
-  end
-  bentoEdps --> checkNew --> genCl --> applyDev --> promote --> sts
-```
-
-1. Authors commit the EDP in the **bento-edps** repo (`edp-props.yml` plus a `terms/*.yml` file). `Ext: true` marks it as an EDP.
-2. **bento-mdb** workflow **Check New EDPs** polls that repo and updates `config/mdb_edps.yml` when a new version appears.
-3. **Generate EDP Changelog** builds changelog XML (defining term, value_set, PV terms) and uploads it to S3.
-4. Apply runs against **CloudOne Dev** MDB (Prefect / changelog runner — same family as other MDB applies).
-5. **Data promotion** copies the graph Dev → QA, then QA → Stage → Prod (see the [promotion guide](../../docs/DATA_PROMOTION_QA_GUIDE.md)).
-
-After promotion, confirm on that environment’s STS: catalog row on `/edps/CRDC` and a 200 PV list on `/edp/CRDC/{id}/{ver}/terms`.
-
-Removing a PV from YAML does **not** yet delete it from MDB. The list in GitHub will stop adding new references; old terms can remain in the graph until a delete path exists.
-
-### 10.6 Workflow B — a model uses an EDP
-
-```mermaid
-flowchart TD
-  mdf["Model MDF Enum points at EDP"]
-  ingest["Model ingest links property to EDP value_set"]
-  sts["STS property /terms and /edp/terms"]
-  portal["Data Hub / portal validates TSV"]
-  mdf --> ingest --> sts --> portal
-```
-
-1. A commons MDF property sets **`Enum:`** to the EDP triple (not only `Term:`).
-2. Model ingest (Trigger / Generate / Update **Models** workflows) loads that version. The property is linked to the **shared** EDP value_set rather than a private copy of thousands of strings.
-3. `GET /model/{handle}/version/{ver}/node/{node}/property/{prop}/terms` should return the **same PV value set** as `GET /edp/.../terms` for that EDP.
-4. Submission Portal / Data Hub validation uses that list: a TSV value in the EDP passes; a value not in the EDP fails.
-
-**Current gap (DATATEAM-500 Phase C):** full portal E2E still needs an **intentional** commons property with `Enum → CRDC000x`. Until that ships, prove STS catalog/PVs (workflow A + [§10.7](#107-what-qa-tests)) and do not treat Test MDF `Term:` placeholders as E2E evidence.
-
-When a model **does** ingest with EDP Enum, QA style is the same as other MDB work: GHA / Prefect / S3 → Neo4j optional → STS → portal. Do not run local `bento-mdf` unit tests for sign-off.
-
-### 10.7 What QA tests
-
-Do not duplicate Jira tables here. Map the work, then open the primer for steps.
-
-| Layer | What you prove | Where |
-|-------|----------------|--------|
-| STS API (DATATEAM-555) | `/edps` and `/edp/.../terms` return the right catalog and PVs from MDB; caDSR unique labels match each `cde-pvs` wrapper | Primer + 555 cases; this framework |
-| Generated suite | EDP paths exist, 200, pagination / skip-OOB / negatives | Spec + discovery (`STS_EDP_ORIGIN_NAME`, default `caDSR`) — [§6.2](#62-changing-what-gets-discovered) |
-| Manual pytest | Pinned triples, PV snapshots, listing uniqueness | [§3.7.2](#372-edp-and-custom-cde-reference) |
-| Model + portal (DATATEAM-500) | After Enum→EDP ingest: property `/terms` ≈ EDP; valid PV passes portal; invalid fails | Lean 500 cases; **blocked** until a real Enum→CRDC model |
-| Promotion | Same EDP triple on QA, then Stage, then Prod | [Promotion guide](../../docs/DATA_PROMOTION_QA_GUIDE.md) |
-
-**Framework commands** (details in §3.7.2):
-
-- `edp_cadsr_parity` — caDSR EDP vs `cde-pvs` unique-set compare
-- `edp_custom_cde` — CRDC0001 / 0002 / 0003 vs snapshots or inline expected PVs
-- `edp_edps_unique` — `/edps/{origin}` listing key uniqueness (caDSR allowlist; CRDC must be unique)
-
-**Promotion note:** API `version` `2.6.0` can be the same on every tier while the **image** differs. Record the ECS/ECR image tag for the STS FastAPI service you signed off on QA, and confirm Stage/Prod received that image. The public `/v2` body does not yet expose the image tag.
-
-### 10.8 Pitfalls
-
-- **Listing duplicates vs graph duplicates.** `/edps/{origin}` is keyed by `(origin_id, origin_version)`. MDB terms are unique on `(origin_name, origin_id, origin_version, value)`. A few caDSR triples can appear twice in the listing without being redundant term nodes (`edp_edps_unique` allowlist). New unexpected duplicates still fail. CRDC listings must stay unique.
-- **ICD-O labels.** CRDC0003 may repeat the same display `value`. Tests allow that (`allow_duplicate_pv_values`).
-- **`Ext: true`.** Required on the EDP definition and on a model property that references an EDP.
-- **Test MDF is not proof.** Fake `Term: Origin: CRDC` codes are not Enum→EDP consumption.
-- **YAML delete ≠ graph delete.** Removing a PV from bento-edps does not automatically detach it in MDB.
-- **Version string exactness.** Pin what MDB has, including `3.2` vs `3.20`.
-- **caDSR wrappers.** Two wrappers with the same ~950 PVs are not a duplicate-PV product bug; compare each wrapper’s unique set to EDP.
 
 
 ---
