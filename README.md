@@ -2,7 +2,7 @@
 
 This repository is an API test framework for the **Simple Terminology Server (STS) v2** API. STS exposes oncology data models (nodes, properties, allowed values/terms) from a graph backing store; clients use it to resolve model metadata consistently across programs such as the Cancer Research Data Commons.
 
-The framework treats the OpenAPI spec document STS is built on (`spec/v2-5-0.json`; older `spec/v2-4-0.json` and `spec/v2.json` kept for reference) as the contract: it loads the spec, **discovers** live IDs in the target environment, **generates** positive and negative HTTP test cases, and **runs** them through a shared client. Results are written as JSON and HTML reports. Alongside this auto-generated suite, the repo ships **"manual" tests** to verify special scenarios and business logic, and **term-by-value** verification pipelines that compare vendored data-model YAML enums to the STS termValue endpoint per data commons. The framework also includes optional **performance/load-style testing** for live STS with reporting.
+The framework treats the OpenAPI spec document STS is built on (`spec/v2-6-0.json`; older `spec/v2-5-0.json`, `spec/v2-4-0.json`, and `spec/v2.json` kept for reference) as the contract: it loads the spec, **discovers** live IDs in the target environment, **generates** positive and negative HTTP test cases, and **runs** them through a shared client. Results are written as JSON and HTML reports. Alongside this auto-generated suite, the repo ships **"manual" tests** to verify special scenarios and business logic, and **term-by-value** verification pipelines that compare vendored data-model YAML enums to the STS termValue endpoint per data commons. The framework also includes optional **performance/load-style testing** for live STS with reporting.
 
 **AI-agent log parsing:** If required environment variables are set, the `parser_agent` module parses captured run logs for test failures, calls **Amazon Bedrock** for analysis, and writes summary reports under `reports/agent-summaries/`. The test scripts invoke this hook after their runs.
 
@@ -12,6 +12,7 @@ The framework treats the OpenAPI spec document STS is built on (`spec/v2-5-0.jso
 | Doc                                      | Use it for                                                                                                         |
 | ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
 | [docs/ONBOARDING.md](docs/ONBOARDING.md) | Overview, design, project layout, env vars, extending tests, reports/CI.                                           |
+| [docs/EDP_MDB_STS.md](docs/EDP_MDB_STS.md) | **EDPs:** what they are, MDB graph, Term vs Enum, STS routes, pipelines, TEST model.                              |
 | [docs/RUNBOOK.md](docs/RUNBOOK.md)       | **CLI/script backup:** command checklist, script extras, pytest forwarding. Prefer the web UI for day-to-day runs. |
 
 

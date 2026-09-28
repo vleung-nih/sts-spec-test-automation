@@ -4,12 +4,12 @@ This document explains what the framework does, how it works, how to run it, and
 
 **How to read this document**
 
-- **First day / QA run:** [§1](#1-what-is-sts-and-the-v2-api)–[§2](#2-what-does-this-framework-do), [§3.6](#36-three-runnable-test-suites-overview)–[§3.8](#38-term-by-value-yaml--sts) (what each suite does), **[§5.0](#50-web-test-runner-ui-recommended)** (web UI), [§5.1](#51-prerequisites)–[§5.6](#56-running-all-data-models-in-one-go-multi-model-runner) (skim [§5.7](#57-what-happens-when-you-run-under-the-hood)), [§7.2](#72-which-file-should-i-open).
+- **First day / QA run:** [§1](#1-what-is-sts-and-the-v2-api)–[§2](#2-what-does-this-framework-do), **[EDP_MDB_STS.md](EDP_MDB_STS.md)** (what EDPs are; Term vs Enum; `/terms` vs `/edp`), [§3.6](#36-three-runnable-test-suites-overview)–[§3.8](#38-term-by-value-yaml--sts) (what each suite does), **[§5.0](#50-web-test-runner-ui-recommended)** (web UI), [§5.1](#51-prerequisites)–[§5.6](#56-running-all-data-models-in-one-go-multi-model-runner) (skim [§5.7](#57-what-happens-when-you-run-under-the-hood)), [§7.2](#72-which-file-should-i-open).
 - **Scripts and logs (CLI backup):** [§5.8](#58-convenience-shell-scripts), [§3.8](#38-term-by-value-yaml--sts) (term-by-value reference).
 - **Changing or debugging tests:** [§6](#6-how-to-add-or-change-tests), [§9](#9-troubleshooting-and-faq).
 - **Generator internals / edge cases:** [§3.3.1](#331-advanced-pagination-skip-oob-and-reporting-quirks), [§5.7](#57-what-happens-when-you-run-under-the-hood).
 
-Optional deep dives: [pagination, skip-OOB, reporting](#331-advanced-pagination-skip-oob-and-reporting-quirks) · [caDSR & legacy CDE-PVS manual tests](#371-cadsr-and-legacy-cde-pvs-reference) · [EDP & custom CDE manual tests](#372-edp-and-custom-cde-reference)
+Optional deep dives: [pagination, skip-OOB, reporting](#331-advanced-pagination-skip-oob-and-reporting-quirks) · [caDSR & legacy CDE-PVS manual tests](#371-cadsr-and-legacy-cde-pvs-reference) · [EDPs (MDB + STS)](EDP_MDB_STS.md) · [EDP pytest cookbook](#372-edp-and-custom-cde-reference)
 
 ---
 
@@ -24,6 +24,7 @@ Optional deep dives: [pagination, skip-OOB, reporting](#331-advanced-pagination-
 7. [Reports and CI](#7-reports-and-ci)
 8. [Glossary](#8-glossary)
 9. [Troubleshooting and FAQ](#9-troubleshooting-and-faq)
+10. [EDPs](#10-edps) — full guide: [EDP_MDB_STS.md](EDP_MDB_STS.md)
 
 ---
 
@@ -31,7 +32,7 @@ Optional deep dives: [pagination, skip-OOB, reporting](#331-advanced-pagination-
 
 **STS** stands for **Simple Terminology Server**. It is a web API that exposes data models (e.g. for cancer research) in a consistent way. The data is stored in a graph database (Neo4j) and described as **nodes**, **properties**, **terms**, and **tags**. The API lets clients ask things like: “What models exist?”, “What nodes does this model have?”, “What are the allowed values (terms) for this property?”.
 
-The **v2 API** is the second version of this interface. It is **read-only**: all endpoints use the **GET** method. There is no login in the spec (no API keys or tokens for normal use). The API is documented in an **OpenAPI** specification file (`spec/v2-5-0.json`), which lists every URL path, its parameters, and the expected response shapes.
+The **v2 API** is the second version of this interface. It is **read-only**: all endpoints use the **GET** method. There is no login in the spec (no API keys or tokens for normal use). The API is documented in an **OpenAPI** specification file (`spec/v2-6-0.json`), which lists every URL path, its parameters, and the expected response shapes.
 
 **Why we test it:** Before releasing changes to STS, we need to confirm that every documented endpoint behaves as the spec says (right status codes, right response shape). This framework automates that checking.
 
@@ -41,7 +42,7 @@ The **v2 API** is the second version of this interface. It is **read-only**: all
 
 At a high level, the framework does four things:
 
-1. **Reads the API contract** – It loads the OpenAPI spec (`spec/v2-5-0.json`) so it knows every endpoint, its parameters, and expected responses.
+1. **Reads the API contract** – It loads the OpenAPI spec (`spec/v2-6-0.json`) so it knows every endpoint, its parameters, and expected responses.
 2. **Gets real data from the API** – It calls the live API once to “discover” real IDs and names (e.g. a model handle, a node handle, a tag). That discovery data is used to build valid requests for each endpoint.
 3. **Generates test cases** – For each endpoint in the spec, it creates at least one “positive” test (expects 200 OK) and, where the spec says so, one “negative” test (expects 404 or 422 for bad input).
 4. **Runs the tests and reports** – It sends HTTP requests for each generated case, checks status codes and basic response shape, and writes a **JSON** and **HTML** report with pass/fail and timing.
@@ -60,7 +61,7 @@ OpenAPI mechanics and discovery are in §3.1–§3.5; **runnable suites** and re
 
 ### 3.1 OpenAPI spec (the “spec”)
 
-The **OpenAPI** (formerly Swagger) specification is a standard way to describe a REST API. The file `spec/v2-5-0.json` contains:
+The **OpenAPI** (formerly Swagger) specification is a standard way to describe a REST API. The file `spec/v2-6-0.json` contains:
 
 - **Paths** – Each URL pattern (e.g. `/v2/models/`, `/v2/id/{id}`).
 - **Operations** – For each path, the HTTP method (here, only GET) and:
@@ -241,6 +242,8 @@ Manual caDSR `GET /DataElement/{publicId}` calls retry transient failures (conne
 
 ### 3.7.2 EDP and custom CDE (reference)
 
+Concepts, MDB/STS flow, Term vs Enum, STS routes, GitHub Actions, and TEST model examples: **[EDP_MDB_STS.md](EDP_MDB_STS.md)**. This subsection is the pytest cookbook only.
+
 Skip unless you run or debug EDP manual modules.
 
 Manual tests complement **generated** EDP smoke coverage (discovery via ``STS_EDP_ORIGIN_NAME``; see [§6.2](#62-changing-what-gets-discovered)). Generated cases check HTTP status and pagination; manual cases pin **origin/id/version** triples and assert **PV `value`** parity (unique labels vs each cde-pvs wrapper for caDSR; multiset vs pinned/YAML for custom CDEs).
@@ -330,7 +333,7 @@ These verification pipelines are **not** pytest and **not** the OpenAPI-generate
 | `c3dc-model-props.yml`              | `python tests/term_verify/c3dc_term_verify.py`     | `reports/term_value/C3DC/`     |
 | `ctdc_model_properties_file-2.yaml` | `python tests/term_verify/ctdc_term_verify.py`     | `reports/term_value/CTDC/`     |
 | `icdc-model-props.yml`              | `python tests/term_verify/icdc_term_verify.py`     | `reports/term_value/ICDC/`     |
-| `cds-model-props-12.0.0.yml`        | `python tests/term_verify/cds_term_verify.py`      | `reports/term_value/CDS/`      |
+| `cds-model-props-13.0.0.yml`        | `python tests/term_verify/cds_term_verify.py`      | `reports/term_value/CDS/`      |
 | `ccdi-dcc-model-props-5.yml`        | `python tests/term_verify/ccdi_dcc_term_verify.py` | `reports/term_value/CCDI-DCC/` |
 
 
@@ -457,7 +460,8 @@ sts-spec-test-automation/
 │   └── templates/
 │       └── index.html        # Test runner UI (single page + SSE client)
 ├── spec/
-│   ├── v2-5-0.json           # Bundled OpenAPI spec (default; STS v2 contract)
+│   ├── v2-6-0.json           # Bundled OpenAPI spec (default; STS v2 contract)
+│   ├── v2-5-0.json           # Earlier snapshot (reference only)
 │   ├── v2-4-0.json           # Earlier snapshot (reference only)
 │   └── v2.json               # Earlier snapshot (reference only)
 ├── src/sts_test_framework/   # Main framework code
@@ -776,7 +780,7 @@ The CLI loads the spec, runs discovery, generates cases, runs them, and **always
 python -m sts_test_framework.cli
 ```
 
-Defaults: spec = `spec/v2-5-0.json`, base URL = `STS_BASE_URL` or `https://sts-qa.cancer.gov/v2` (same default as `DEFAULT_STS_BASE_URL` in [sts_test_framework/config.py](../src/sts_test_framework/config.py)), report dir = `reports/`. For **prod**, **stage**, or **local**, set `STS_BASE_URL` or pass `--base-url` (see [§5.2](#52-configuration-environment-variables)).
+Defaults: spec = `spec/v2-6-0.json`, base URL = `STS_BASE_URL` or `https://sts-qa.cancer.gov/v2` (same default as `DEFAULT_STS_BASE_URL` in [sts_test_framework/config.py](../src/sts_test_framework/config.py)), report dir = `reports/`. For **prod**, **stage**, or **local**, set `STS_BASE_URL` or pass `--base-url` (see [§5.2](#52-configuration-environment-variables)).
 
 **Example:** Your CI job runs after every deploy. You run `python -m sts_test_framework.cli --report reports/` and publish `reports/report.html` as an artifact so the team can open it and see which endpoints passed or failed. You don’t need pytest in that job—just the CLI and the report files.
 
@@ -784,7 +788,7 @@ Defaults: spec = `spec/v2-5-0.json`, base URL = `STS_BASE_URL` or `https://sts-q
 
 ```bash
 # Custom spec and base URL
-python -m sts_test_framework.cli --spec spec/v2-5-0.json --base-url https://sts.cancer.gov/v2
+python -m sts_test_framework.cli --spec spec/v2-6-0.json --base-url https://sts.cancer.gov/v2
 
 # Write reports to a specific folder
 python -m sts_test_framework.cli --report reports/
@@ -843,7 +847,7 @@ Whether you use **pytest** or the **CLI**, the same pipeline runs: load spec →
 
 **Short summary:**
 
-1. **Load spec** – Read `spec/v2-5-0.json` (or the path you gave); parse as JSON or YAML into a dict with paths and schemas.
+1. **Load spec** – Read `spec/v2-6-0.json` (or the path you gave); parse as JSON or YAML into a dict with paths and schemas.
 2. **Create client** – HTTP client with the chosen base URL (and optional SSL verify from env).
 3. **Discovery** – GET models → nodes → properties → terms, GET tags; build `test_data` with real handles and IDs.
 4. **Generate cases** – For each GET operation in the spec, build positive (200) and optionally negative (404/422) cases using `test_data`.
@@ -856,7 +860,7 @@ A more detailed breakdown of each step is below.
 
 #### Step 1: Load the spec
 
-- **What happens:** The framework reads the spec file from disk (e.g. `spec/v2-5-0.json`). The file may be JSON or YAML; the loader tries to parse it as JSON first, then falls back to YAML if needed.
+- **What happens:** The framework reads the spec file from disk (e.g. `spec/v2-6-0.json`). The file may be JSON or YAML; the loader tries to parse it as JSON first, then falls back to YAML if needed.
 - **Result:** A Python dictionary with at least:
   - `paths` – each key is a path template (e.g. `/v2/models/`, `/v2/id/{id}`); each value describes the HTTP methods and their parameters and responses.
   - `components.schemas` – reusable response/request body schemas (e.g. `Model`, `Node`, `Entity`).
@@ -1056,7 +1060,7 @@ Example:
     STS_BASE_URL: ${{ vars.STS_BASE_URL }}
   run: |
     pip install -e .
-    python -m sts_test_framework.cli --spec spec/v2-5-0.json --report reports/
+    python -m sts_test_framework.cli --spec spec/v2-6-0.json --report reports/
 ```
 
 Or run pytest and optionally run the CLI for reports:
@@ -1109,18 +1113,24 @@ This suite is **not** included in `run_full_suite.sh`.
 
 - **API** – Application Programming Interface; here, the HTTP API of the STS server.
 - **Base URL** – The root URL of the STS v2 API including `/v2` (default in tests: `https://sts-qa.cancer.gov/v2`; prod example: `https://sts.cancer.gov/v2`). All request paths are appended to this.
+- **caDSR EDP** – An EDP whose `origin_name` is `caDSR`. PVs are also available on the legacy `cde-pvs` route. Compare unique PV labels per wrapper, not a flattened multiset of wrappers.
+- **cde-pvs** – Legacy STS route `GET /terms/cde-pvs/{id}/{version}/pvs`. Returns CDE permissible values, sometimes as multiple wrappers with the same labels. Used for caDSR parity with `/edp/.../terms`; not used for CRDC custom EDPs.
+- **CRDC EDP** – A custom EDP with `origin_name` `CRDC` (e.g. CRDC0001 Uberon, CRDC0002 OBIB, CRDC0003 ICD-O). Served only on `/edps` and `/edp/.../terms`, not on `cde-pvs`.
 - **Discovery** – The one-time process of calling the API to get real IDs and values (model handle, node handle, tag key/value, etc.) used to build test requests.
+- **EDP** – Extended Definition Property. A named, versioned permissible-value list stored in MDB and exposed by STS, so models can share large vocabularies instead of copying every value into MDF. Identified by `origin_name` + `origin_id` + `origin_version`. See [EDP_MDB_STS.md](EDP_MDB_STS.md).
 - **Endpoint** – One path + method combination (e.g. GET `/v2/models/`).
 - **Fixture** – In pytest, a reusable piece of setup (e.g. `api_client`, `test_data`) provided to test functions by name.
 - **Generator** – The code that turns the OpenAPI spec plus discovery data into a list of **test cases** (path, params, expected status, etc.).
 - **Negative test** – A test that sends invalid or missing input and expects an error response (404 or 422).
 - **OpenAPI** – A standard format (YAML/JSON) for describing REST APIs (paths, parameters, responses, schemas).
+- **origin_name / origin_id / origin_version** – The three-part identity of an EDP (and of caDSR CDEs). Example: `CRDC` / `CRDC0002` / `1`. The version string must match MDB exactly (`2.0` is not `2.00`).
 - **Operation** – One HTTP method on one path in the spec (e.g. GET `/v2/id/{id}`).
 - **Path parameter** – A part of the URL that varies (e.g. `{id}` in `/v2/id/{id}`). Values come from discovery or are faked for negative tests.
 - **Positive test** – A test that sends valid input and expects success (200).
+- **PV** – Permissible value. One allowed string for a property (the Term `value` on `/edp/.../terms` or on a property `/terms` list).
 - **Query parameter** – Key-value in the URL after `?` (e.g. `skip=0`, `limit=10`).
 - **Schema** – In OpenAPI, the description of a response body (e.g. “object with fields nanoid, handle, version”). Used for contract validation.
-- **Spec** – The OpenAPI specification file (`spec/v2-5-0.json`); the “contract” of the API.
+- **Spec** – The OpenAPI specification file (`spec/v2-6-0.json`); the “contract” of the API.
 - **Tag** – In OpenAPI, a label on an operation (e.g. `id`, `model`, `models`). Used to group endpoints and to filter which tests to run (`--tags`).
 - **test_data** – The dictionary produced by discovery (model_handle, node_handle, etc.) used to fill path and query parameters when generating cases.
 
@@ -1158,7 +1168,16 @@ This suite is **not** included in `run_full_suite.sh`.
 
 **Where do I document our team’s conventions?**
 
-- Use this ONBOARDING.md for how the framework works and how to maintain it. Use the README for quick start (web UI first, then CLI), install, and high-level purpose.
+- Use this ONBOARDING.md for how the framework works and how to maintain it. Use the README for quick start (web UI first, then CLI), install, and high-level purpose. For EDPs (what they are, Term vs Enum, MDB/STS flow), see [EDP_MDB_STS.md](EDP_MDB_STS.md). The pytest cookbook is [§3.7.2](#372-edp-and-custom-cde-reference).
+
+---
+
+## 10. EDPs
+
+The end-to-end MDB + STS guide (what an EDP is, graph shape, Term vs Enum, STS routes, pipelines, TEST model examples) is **[EDP_MDB_STS.md](EDP_MDB_STS.md)**.
+
+How to **run** the pytest modules is in [§3.7.2](#372-edp-and-custom-cde-reference). Jira step tables stay in the DATATEAM primers.
+
 
 ---
 

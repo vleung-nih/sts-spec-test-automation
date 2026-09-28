@@ -20,7 +20,7 @@ WHERE THE EXPECTED VERSION COMES FROM
 ================================================================================
 
 - **``spec_version`` fixture** — reads ``info.version`` from the bundled OpenAPI spec
-  (``spec/v2-5-0.json`` via ``bundled_spec_path()``). When the spec file is bumped for a
+  (``spec/v2-6-0.json`` via ``bundled_spec_path()``). When the spec file is bumped for a
   new release, the expected version updates automatically; no hardcoded version in this test.
 
 - **Endpoint:** ``GET /`` relative to ``STS_BASE_URL`` (no query parameters).
