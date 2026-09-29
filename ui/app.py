@@ -26,6 +26,7 @@ from flask import Flask, Response, jsonify, render_template, request
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
 ENVIRONMENTS: dict[str, str] = {
+    "dev": "https://sts-dev.cancer.gov/v2",
     "qa": "https://sts-qa.cancer.gov/v2",
     "stage": "https://sts-stage.cancer.gov/v2",
     "prod": "https://sts.cancer.gov/v2",

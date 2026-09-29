@@ -6,6 +6,7 @@ STS paths below are relative to `/v2`. Example hosts:
 
 | Host | Base URL |
 |------|----------|
+| sts-dev.cancer.gov | `https://sts-dev.cancer.gov/v2` |
 | sts-qa.cancer.gov | `https://sts-qa.cancer.gov/v2` |
 | sts-stage.cancer.gov | `https://sts-stage.cancer.gov/v2` |
 | sts.cancer.gov | `https://sts.cancer.gov/v2` |
@@ -316,7 +317,7 @@ GET https://sts-qa.cancer.gov/v2/model/TEST/version/{latest}/node/sample/propert
 
 - **`Term:` is not consume.** Term-only properties never show up on `/edps/.../properties` and do not get the EDP PV list on property `/terms`.
 - **Version strings are exact.** `2.0` vs `2.00`, `3.2` vs `3.20`, `CRDC0001` vs `CRDC_0001`.
-- **Listing duplicates vs graph duplicates.** `/edps/{origin}` is keyed by `(origin_id, origin_version)`. MDB term nodes are unique on `(origin_name, origin_id, origin_version, value)`.
+- **Listing duplicates vs graph duplicates.** STS `/edps/{origin}` returns one row per term node (`DISTINCT t`), so the same CDE id/version can appear twice with different `value`s. The `edp_edps_unique` test uses the MDB / DATATEAM-508 key `(origin_name, origin_id, origin_version, value)`: two titles for one CDE are not a fail; the same 4-tuple twice is. caDSR is expected to fail until DATATEAM-722 (PR 197) and leftover cleanup land; that is not DATATEAM-736.
 - **YAML delete ≠ graph delete.** Removing a PV from `bento-edps` does not automatically detach it in MDB.
 - **CRDC0001 / CRDC0003 authoring.** They are on STS and on TEST; they are not in the current `bento-edps` / `mdb_edps.yml` tree.
 - **`GET /` version vs image.** API `2.6.0` can be the same on every tier while the STS image differs.
