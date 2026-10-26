@@ -13,17 +13,22 @@ Two listing rows that share only ``origin_id`` + ``origin_version`` but have
 different ``value`` (two CDE titles) are **not** duplicates. Rows that match on
 all four fields are redundant term nodes and fail.
 
-Known limitation: caDSR is expected to fail until leftover term-dedup work is
-done. DATATEAM-508 cleaned existing copies (2026-08-05); the pipeline can still
-create new nodes with the same 4-tuple until DATATEAM-722 (bento-mdb PR 197)
-merges and a follow-up cleanup runs. A fail here is that leftover work, not
-DATATEAM-736.
+**CRDC:** must have zero duplicate 4-tuples (strict).
+
+**caDSR:** legacy duplicate term nodes remain on STS until Neo4j cleanup.
+DATATEAM-722 / bento-mdb PR 197 prevents new same-key inserts. For caDSR we
+compare live duplicate **counts** to a checked-in baseline
+(``duplicate_drift_baselines`` in case JSON): fail only on **new** duplicate
+4-tuples or **higher** counts than baseline. When cleanup reaches zero dupes,
+remove the baseline entry and use strict zero for caDSR again.
 
 ================================================================================
 WHERE THE DATA COMES FROM
 ================================================================================
 
-- ``data/edp_edps_unique_cases.json`` — ``{"origins": ["caDSR", "CRDC"]}``.
+- ``data/edp_edps_unique_cases.json`` — ``origins`` and optional
+  ``duplicate_drift_baselines`` per origin.
+- Baseline snapshot: ``data/baselines/cadsr_edps_508_duplicate_baseline_2026-10-21.json``.
 - STS: session ``api_client`` — ``GET /edps/{origin}`` (no limit → all rows).
 
 ================================================================================
@@ -34,13 +39,15 @@ HOW TO RUN
 
     pytest tests/test_manual/test_edp_edps_no_duplicates.py -m edp_edps_unique -v
 
-Uses ``STS_BASE_URL`` (default QA).
+Uses ``STS_BASE_URL`` (default QA). caDSR drift baseline is applied for any
+base URL; counts on non-QA tiers may differ from the QA snapshot.
 """
 from __future__ import annotations
 
 import json
 import logging
 from collections import Counter, defaultdict
+from pathlib import Path
 from typing import Any
 from urllib.parse import quote
 
@@ -48,18 +55,16 @@ import pytest
 
 from sts_test_framework.client import APIClient, full_url
 from sts_test_framework.config import project_root
+from sts_test_framework.edp_edps_drift import compare_dups_to_baseline, load_drift_baseline
 
 logger = logging.getLogger(__name__)
 
 _EDPS_UNIQUE_DATA_FILE = project_root() / "data" / "edp_edps_unique_cases.json"
 
-# 508 cleaned existing term copies; 722 (PR 197) is still in review and leftover
-# nodes remain. caDSR listing can fail until that prevent + cleanup work lands.
-_DEDUP_PENDING_NOTE = (
-    "KNOWN LIMITATION: this check can fail until term-dedup leftover work is "
-    "resolved (DATATEAM-722 / bento-mdb PR 197 merged, then leftover 4-tuple "
-    "cleanup). DATATEAM-508 cleaned copies on 2026-08-05; the pipeline can still "
-    "insert new same-key term nodes. A fail is that leftover work, not DATATEAM-736."
+_DRIFT_POLICY_NOTE = (
+    "caDSR: no-drift vs checked-in 508 duplicate baseline (DATATEAM-722 prevent "
+    "merged; legacy dupes frozen until graph cleanup). Fail = new 4-tuple or count "
+    "increase. CRDC: strict zero duplicates."
 )
 
 _CASES_PAYLOAD: dict[str, Any] | None = None
@@ -84,6 +89,15 @@ def _load_origins() -> list[str]:
     if not origins:
         pytest.skip(f"No origins in {_EDPS_UNIQUE_DATA_FILE}")
     return [str(o) for o in origins]
+
+
+def _baseline_path_for_origin(origin: str) -> Path | None:
+    payload = _load_cases_payload()
+    by_origin = payload.get("duplicate_drift_baselines") or {}
+    rel = by_origin.get(origin)
+    if not rel:
+        return None
+    return project_root() / str(rel)
 
 
 def _edps_list_path(origin_name: str) -> str:
@@ -132,23 +146,19 @@ def _dup_report(
 @pytest.mark.parametrize("origin", _load_origins(), ids=lambda o: o)
 def test_edps_listing_has_no_duplicate_edps(api_client: APIClient, origin: str):
     """
-    GET /edps/{origin} must not list two terms with the same DATATEAM-508 key
-    (origin_name, origin_id, origin_version, value).
+    GET /edps/{origin} — DATATEAM-508 duplicate check.
 
-    Expected to fail on caDSR until DATATEAM-722 (PR 197) is merged and leftover
-    same-key term nodes are cleaned up. That is leftover 508/722 work, not 736.
-
-    Steps:
-    1. GET /edps/{origin} (no limit → all defining terms in one response)
-    2. Count rows per 508 4-tuple
-    3. Fail if any 4-tuple appears more than once
+    CRDC: no duplicate 4-tuples. caDSR: no drift vs baseline when configured.
     """
     list_path = _edps_list_path(origin)
     list_url = full_url(api_client, list_path)
+    baseline_path = _baseline_path_for_origin(origin)
     print(f"\n--- EDP listing uniqueness (DATATEAM-508): {origin} ---")
-    print(f"  {_DEDUP_PENDING_NOTE}")
+    print(f"  {_DRIFT_POLICY_NOTE}")
+    if baseline_path:
+        print(f"  drift baseline: {baseline_path.relative_to(project_root())}")
     print(f"  STS edps GET: {list_url}")
-    logger.info("%s origin=%s", _DEDUP_PENDING_NOTE, origin)
+    logger.info("%s origin=%s baseline=%s", _DRIFT_POLICY_NOTE, origin, baseline_path)
 
     res = api_client.get(list_path)
     print(f"  STS edps HTTP: {res.status_code} in {res.duration:.3f}s")
@@ -178,19 +188,49 @@ def test_edps_listing_has_no_duplicate_edps(api_client: APIClient, origin: str):
         f"duplicated_keys={len(dups)}"
     )
 
-    assert not dups, (
-        f"{_DEDUP_PENDING_NOTE}\n"
-        f"/edps/{origin}: {len(body)} rows but only {len(counts)} unique "
-        f"(origin_name, origin_id, origin_version, value) keys — "
-        f"{len(dups)} DATATEAM-508 duplicate group(s).\n"
-        f"  duplicate 4-tuple -> {{count, handles, nanoids}}: "
-        f"{json.dumps(_dup_report(dups, samples_by_key), indent=2)}"
-    )
+    if baseline_path is None:
+        assert not dups, (
+            f"/edps/{origin}: {len(body)} rows but only {len(counts)} unique "
+            f"(origin_name, origin_id, origin_version, value) keys — "
+            f"{len(dups)} DATATEAM-508 duplicate group(s).\n"
+            f"  duplicate 4-tuple -> {{count, handles, nanoids}}: "
+            f"{json.dumps(_dup_report(dups, samples_by_key), indent=2)}"
+        )
+        print(f"  PASS {origin}: {len(body)} rows; DATATEAM-508 duplicates=0\n")
+        logger.info(
+            "PASS edp_edps_unique %s rows=%s unique=%s",
+            origin,
+            len(body),
+            len(counts),
+        )
+        return
 
-    print(f"  PASS {origin}: {len(body)} rows; DATATEAM-508 duplicates=0\n")
+    baseline = load_drift_baseline(baseline_path)
+    baseline_groups = baseline["groups"]
+
+    if not dups and baseline_groups:
+        print(
+            f"  PASS {origin}: all baseline duplicate groups resolved "
+            f"({len(baseline_groups)} were in baseline). "
+            "Consider removing duplicate_drift_baselines and enabling strict zero.\n"
+        )
+        logger.info("PASS edp_edps_unique %s all baseline dups resolved", origin)
+        return
+
+    result = compare_dups_to_baseline(dups, baseline_groups)
+    if result.resolved_keys:
+        print(
+            f"  cleanup progress: {len(result.resolved_keys)} baseline duplicate "
+            f"group(s) no longer duplicated (first 5): {result.resolved_keys[:5]}"
+        )
+    print(
+        f"  PASS {origin} (no drift): duplicate_groups={result.current_duplicate_groups} "
+        f"max_count={result.max_count}\n"
+    )
     logger.info(
-        "PASS edp_edps_unique %s rows=%s unique=%s",
+        "PASS edp_edps_unique %s drift_ok groups=%s max_count=%s resolved=%s",
         origin,
-        len(body),
-        len(counts),
+        result.current_duplicate_groups,
+        result.max_count,
+        len(result.resolved_keys),
     )

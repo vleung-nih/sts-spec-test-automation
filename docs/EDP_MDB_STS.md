@@ -45,6 +45,8 @@ CRDC EDPs currently used on the TEST model and on STS:
 | CRDC0002 | 1 | OBIB (specimen) | 128 | **Yes** (`obib_terms_valueset`) |
 | CRDC0003 | 3.2 | ICD-O morphology | 1,183 | **No** — same as CRDC0001: on STS and TEST, not in current `bento-edps` |
 | CRDC0005 | 1 | TEST-model verification EDP (not for production commons) | small | **Yes** (`qa_test_valueset`) |
+| CRDC0007 | 1 | QA auto-register EDP (not for production commons); TEST `sample.qa_auto_reg_value` | 2 | **Yes** (`qa_auto_register_valueset`) |
+| CRDC0008 | 1 | Official CRDC study names | 134 | **Yes** (`crdc_study_names`); on STS; not consumed by TEST yet |
 
 ---
 
@@ -317,7 +319,7 @@ GET https://sts-qa.cancer.gov/v2/model/TEST/version/{latest}/node/sample/propert
 
 - **`Term:` is not consume.** Term-only properties never show up on `/edps/.../properties` and do not get the EDP PV list on property `/terms`.
 - **Version strings are exact.** `2.0` vs `2.00`, `3.2` vs `3.20`, `CRDC0001` vs `CRDC_0001`.
-- **Listing duplicates vs graph duplicates.** STS `/edps/{origin}` returns one row per term node (`DISTINCT t`), so the same CDE id/version can appear twice with different `value`s. The `edp_edps_unique` test uses the MDB / DATATEAM-508 key `(origin_name, origin_id, origin_version, value)`: two titles for one CDE are not a fail; the same 4-tuple twice is. caDSR is expected to fail until DATATEAM-722 (PR 197) and leftover cleanup land; that is not DATATEAM-736.
+- **Listing duplicates vs graph duplicates.** STS `/edps/{origin}` returns one row per term node (`DISTINCT t`), so the same CDE id/version can appear twice with different `value`s. The `edp_edps_unique` test uses the MDB / DATATEAM-508 key `(origin_name, origin_id, origin_version, value)`: two titles for one CDE are not a fail; the same 4-tuple twice is. **CRDC** must have zero duplicate 4-tuples. **caDSR** compares live duplicate counts to a checked-in drift baseline (legacy Neo4j copies frozen after PR 197 prevent); fail only on new 4-tuples or count increases until cleanup reaches zero, then remove the baseline and enforce strict zero.
 - **YAML delete ≠ graph delete.** Removing a PV from `bento-edps` does not automatically detach it in MDB.
 - **CRDC0001 / CRDC0003 authoring.** They are on STS and on TEST; they are not in the current `bento-edps` / `mdb_edps.yml` tree.
 - **`GET /` version vs image.** API `2.6.0` can be the same on every tier while the STS image differs.

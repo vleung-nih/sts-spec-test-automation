@@ -270,12 +270,14 @@ Manual tests complement **generated** EDP smoke coverage (discovery via ``STS_ED
 | CRDC0002 | 1 | obib value set reference | 128 | inline ``expected_pv_values`` |
 | CRDC0001 | 1 | uberon value set reference | 12,854 | ``data/edp_expected_pv/CRDC0001_1.json`` |
 | CRDC0003 | 3.2 | icdo valueset reference | 1,183 | ``data/edp_expected_pv/CRDC0003_3.2.json`` (``allow_duplicate_pv_values``: ICD-O may repeat display labels) |
+| CRDC0008 | 1 | official study names | 134 | ``data/edp_expected_pv/CRDC0008_1.json`` |
 
 - **Regenerate PV snapshots** (after MDB value-set refresh):
 
 ```bash
 python scripts/generate_edp_pv_snapshot.py --origin-id CRDC0001 --origin-version 1
 python scripts/generate_edp_pv_snapshot.py --origin-id CRDC0003 --origin-version 3.2
+python scripts/generate_edp_pv_snapshot.py --origin-id CRDC0008 --origin-version 1
 ```
 
 - **Version strings:** Use exact MDB pins (e.g. ``2.0`` not ``2.00``); mismatch yields empty ``cde-pvs`` or EDP **404**.
@@ -289,7 +291,10 @@ python scripts/generate_edp_pv_snapshot.py --origin-id CRDC0003 --origin-version
 - **Test file:** `tests/test_manual/test_edp_edps_no_duplicates.py`
 - **Marker:** `edp_edps_unique`
 - **What it checks:** ``GET /edps/{origin}`` has no duplicate rows under the DATATEAM-508 / MDB term-dedup key ``(origin_name, origin_id, origin_version, value)``. Two listing rows that share only ``origin_id`` + ``origin_version`` but have different ``value`` (two CDE titles) are not failures.
-- **Note:** caDSR is expected to fail until leftover term-dedup work is done (DATATEAM-722 / bento-mdb PR 197 merged, then leftover 4-tuple cleanup). That is leftover 508/722 work, not DATATEAM-736.
+- **CRDC:** strict — any duplicate 4-tuple fails.
+- **caDSR:** **no-drift** vs checked-in baseline (`data/baselines/cadsr_edps_508_duplicate_baseline_2026-10-21.json`, wired in `data/edp_edps_unique_cases.json` → ``duplicate_drift_baselines``). Fails only if a **new** duplicate 4-tuple appears or an existing baseline group’s **count increases** (regression after DATATEAM-722 / bento-mdb PR 197). Lower counts or resolved groups pass (cleanup progress). When QA has **zero** duplicate groups, remove ``duplicate_drift_baselines.caDSR`` and use strict zero for caDSR again.
+- **Non-QA `STS_BASE_URL`:** the baseline snapshot is from QA; duplicate counts on other tiers may differ and fail the drift check.
+- **Refresh baseline (after intentional cleanup):** `STS_BASE_URL=... python scripts/export_cadsr_edps_drift_baseline.py -o data/baselines/cadsr_edps_508_duplicate_baseline_2026-10-21.json` — commit only when lowering the ceiling deliberately, not on every green run.
 - **Origins:** `data/edp_edps_unique_cases.json` → ``origins`` (``caDSR`` and ``CRDC``).
 - **Run command:** `pytest tests/test_manual/test_edp_edps_no_duplicates.py -m edp_edps_unique -v`
 
@@ -1116,7 +1121,7 @@ This suite is **not** included in `run_full_suite.sh`.
 - **Base URL** – The root URL of the STS v2 API including `/v2` (default in tests: `https://sts-qa.cancer.gov/v2`; prod example: `https://sts.cancer.gov/v2`). All request paths are appended to this.
 - **caDSR EDP** – An EDP whose `origin_name` is `caDSR`. PVs are also available on the legacy `cde-pvs` route. Compare unique PV labels per wrapper, not a flattened multiset of wrappers.
 - **cde-pvs** – Legacy STS route `GET /terms/cde-pvs/{id}/{version}/pvs`. Returns CDE permissible values, sometimes as multiple wrappers with the same labels. Used for caDSR parity with `/edp/.../terms`; not used for CRDC custom EDPs.
-- **CRDC EDP** – A custom EDP with `origin_name` `CRDC` (e.g. CRDC0001 Uberon, CRDC0002 OBIB, CRDC0003 ICD-O). Served only on `/edps` and `/edp/.../terms`, not on `cde-pvs`.
+- **CRDC EDP** – A custom EDP with `origin_name` `CRDC` (e.g. CRDC0001 Uberon, CRDC0002 OBIB, CRDC0003 ICD-O, CRDC0008 study names). Served only on `/edps` and `/edp/.../terms`, not on `cde-pvs`.
 - **Discovery** – The one-time process of calling the API to get real IDs and values (model handle, node handle, tag key/value, etc.) used to build test requests.
 - **EDP** – Extended Definition Property. A named, versioned permissible-value list stored in MDB and exposed by STS, so models can share large vocabularies instead of copying every value into MDF. Identified by `origin_name` + `origin_id` + `origin_version`. See [EDP_MDB_STS.md](EDP_MDB_STS.md).
 - **Endpoint** – One path + method combination (e.g. GET `/v2/models/`).

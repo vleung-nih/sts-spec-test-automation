@@ -150,6 +150,13 @@
       "description": "CRDC ICD-O morphology valueset reference — full EDP PV multiset vs STS snapshot",
       "expected_pv_values_file": "data/edp_expected_pv/CRDC0003_3.2.json",
       "allow_duplicate_pv_values": true
+    },
+    {
+      "origin_name": "CRDC",
+      "origin_id": "CRDC0008",
+      "origin_version": "1",
+      "description": "CRDC official study names — PV multiset vs STS snapshot",
+      "expected_pv_values_file": "data/edp_expected_pv/CRDC0008_1.json"
     }
   ]
 }

@@ -1,0 +1,707 @@
+{
+  "policy": "no_drift_until_graph_cleanup_then_strict_zero",
+  "captured_at": "2026-10-21T16:55:50-04:00",
+  "source_run": "reports/manual_tests_2026-10-21T16-55-50.html",
+  "sts_base_url_at_capture": "https://sts-qa.cancer.gov/v2",
+  "summary": {
+    "rows": 1419,
+    "unique_508_keys": 535,
+    "duplicate_groups": 99,
+    "extra_duplicate_rows": 884
+  },
+  "groups": [
+    {
+      "origin_name": "caDSR",
+      "origin_id": "13362265",
+      "origin_version": "1",
+      "value": "Subject Off Protocol Therapy Reason",
+      "count": 33
+    },
+    {
+      "origin_name": "caDSR",
+      "origin_id": "13383458",
+      "origin_version": "1",
+      "value": "Treatment Total Radiation Dose Unit of Measure",
+      "count": 18
+    },
+    {
+      "origin_name": "caDSR",
+      "origin_id": "2192199",
+      "origin_version": "1",
+      "value": "Race Category Text",
+      "count": 18
+    },
+    {
+      "origin_name": "caDSR",
+      "origin_id": "2321160",
+      "origin_version": "4",
+      "value": "Agent Administration Dose Unit of Measure Name",
+      "count": 18
+    },
+    {
+      "origin_name": "caDSR",
+      "origin_id": "11387114",
+      "origin_version": "2",
+      "value": "Data File Compression Status",
+      "count": 17
+    },
+    {
+      "origin_name": "caDSR",
+      "origin_id": "11475057",
+      "origin_version": "2",
+      "value": "Data File Checksum Type",
+      "count": 17
+    },
+    {
+      "origin_name": "caDSR",
+      "origin_id": "12445832",
+      "origin_version": "1",
+      "value": "Specimen Material Category",
+      "count": 17
+    },
+    {
+      "origin_name": "caDSR",
+      "origin_id": "13383448",
+      "origin_version": "1",
+      "value": "Disease Response Assessment Outcome",
+      "count": 17
+    },
+    {
+      "origin_name": "caDSR",
+      "origin_id": "14737565",
+      "origin_version": "1",
+      "value": "Therapeutic Procedure Performed Type",
+      "count": 17
+    },
+    {
+      "origin_name": "caDSR",
+      "origin_id": "14834973",
+      "origin_version": "1",
+      "value": "Subject Off Protocol Therapy Indicator",
+      "count": 17
+    },
+    {
+      "origin_name": "caDSR",
+      "origin_id": "16391087",
+      "origin_version": "1",
+      "value": "Subject Off Treatment Indicator",
+      "count": 17
+    },
+    {
+      "origin_name": "caDSR",
+      "origin_id": "16445061",
+      "origin_version": "1",
+      "value": "Specimen Peripheral Blood Mononuclear Cell Recovery Indicator",
+      "count": 17
+    },
+    {
+      "origin_name": "caDSR",
+      "origin_id": "16794590",
+      "origin_version": "1",
+      "value": "Tumor AJCC Edition 8 Clinical T Category",
+      "count": 17
+    },
+    {
+      "origin_name": "caDSR",
+      "origin_id": "16794606",
+      "origin_version": "1",
+      "value": "Tumor AJCC Edition 8 Clinical N Category",
+      "count": 17
+    },
+    {
+      "origin_name": "caDSR",
+      "origin_id": "16794608",
+      "origin_version": "1",
+      "value": "Tumor AJCC Edition 8 Clinical M Category",
+      "count": 17
+    },
+    {
+      "origin_name": "caDSR",
+      "origin_id": "16794610",
+      "origin_version": "1",
+      "value": "Tumor AJCC Edition 8 Clinical Stage",
+      "count": 17
+    },
+    {
+      "origin_name": "caDSR",
+      "origin_id": "16964026",
+      "origin_version": "1",
+      "value": "Sequencing Library Construction Kit Name",
+      "count": 17
+    },
+    {
+      "origin_name": "caDSR",
+      "origin_id": "16965685",
+      "origin_version": "1",
+      "value": "Imaging Positive Detection Model Type",
+      "count": 17
+    },
+    {
+      "origin_name": "caDSR",
+      "origin_id": "16967933",
+      "origin_version": "1",
+      "value": "Molecular Analysis Cell Annotation Azimuth Reference Type",
+      "count": 17
+    },
+    {
+      "origin_name": "caDSR",
+      "origin_id": "16967934",
+      "origin_version": "1",
+      "value": "Molecular Analysis Cell Annotation Tabula Sapiens Reference Type",
+      "count": 17
+    },
+    {
+      "origin_name": "caDSR",
+      "origin_id": "17003293",
+      "origin_version": "1",
+      "value": "Assay Antigen Type",
+      "count": 17
+    },
+    {
+      "origin_name": "caDSR",
+      "origin_id": "17006478",
+      "origin_version": "1",
+      "value": "Molecular Analysis Enrichment Kit Name",
+      "count": 17
+    },
+    {
+      "origin_name": "caDSR",
+      "origin_id": "17137242",
+      "origin_version": "1",
+      "value": "Assay Type Category",
+      "count": 17
+    },
+    {
+      "origin_name": "caDSR",
+      "origin_id": "17221516",
+      "origin_version": "1",
+      "value": "Treatment Dose Modification Indicator",
+      "count": 17
+    },
+    {
+      "origin_name": "caDSR",
+      "origin_id": "17384454",
+      "origin_version": "1",
+      "value": "Treatment Targeting Therapy Category",
+      "count": 17
+    },
+    {
+      "origin_name": "caDSR",
+      "origin_id": "2003853",
+      "origin_version": "4.2",
+      "value": "Karnofsky Performance Status Score",
+      "count": 17
+    },
+    {
+      "origin_name": "caDSR",
+      "origin_id": "2003878",
+      "origin_version": "4",
+      "value": "Agent Administered Frequency",
+      "count": 17
+    },
+    {
+      "origin_name": "caDSR",
+      "origin_id": "2681552",
+      "origin_version": "1",
+      "value": "Person Education Level Summary Type",
+      "count": 17
+    },
+    {
+      "origin_name": "caDSR",
+      "origin_id": "2847330",
+      "origin_version": "1",
+      "value": "Participant Vital Status Type",
+      "count": 17
+    },
+    {
+      "origin_name": "caDSR",
+      "origin_id": "4783274",
+      "origin_version": "1",
+      "value": "Primary Cause of Death Reason",
+      "count": 17
+    },
+    {
+      "origin_name": "caDSR",
+      "origin_id": "5205578",
+      "origin_version": "3",
+      "value": "Subject Carcinogen Exposure Indicator",
+      "count": 17
+    },
+    {
+      "origin_name": "caDSR",
+      "origin_id": "7063755",
+      "origin_version": "1",
+      "value": "Radiation Therapy Administration Extent Type",
+      "count": 17
+    },
+    {
+      "origin_name": "caDSR",
+      "origin_id": "88",
+      "origin_version": "5.1",
+      "value": "Performance Status ECOG Scale",
+      "count": 17
+    },
+    {
+      "origin_name": "caDSR",
+      "origin_id": "16459567",
+      "origin_version": "1",
+      "value": "Diagnosis Disease SNOMED CT Name",
+      "count": 16
+    },
+    {
+      "origin_name": "caDSR",
+      "origin_id": "2093",
+      "origin_version": "3",
+      "value": "Agent Quantity UOM",
+      "count": 16
+    },
+    {
+      "origin_name": "caDSR",
+      "origin_id": "5899851",
+      "origin_version": "1",
+      "value": "Timepoint Event Assessment Period Type",
+      "count": 16
+    },
+    {
+      "origin_name": "caDSR",
+      "origin_id": "4723846",
+      "origin_version": "1",
+      "value": "NCI CTEP Simplified Disease Classification Terminology MedDRA Version 10 Code",
+      "count": 15
+    },
+    {
+      "origin_name": "caDSR",
+      "origin_id": "14824731",
+      "origin_version": "2",
+      "value": "Data File Content Category",
+      "count": 14
+    },
+    {
+      "origin_name": "caDSR",
+      "origin_id": "16284367",
+      "origin_version": "1",
+      "value": "Disease Primary Diagnosis Group Category",
+      "count": 14
+    },
+    {
+      "origin_name": "caDSR",
+      "origin_id": "16464896",
+      "origin_version": "1",
+      "value": "Diagnosis Disease NCI CTEP Simplified Disease Classification Terminology Name",
+      "count": 14
+    },
+    {
+      "origin_name": "caDSR",
+      "origin_id": "11325685",
+      "origin_version": "2.00",
+      "value": "Subject Tumor Grade",
+      "count": 8
+    },
+    {
+      "origin_name": "caDSR",
+      "origin_id": "11341616",
+      "origin_version": "1",
+      "value": "Disease Primary Anatomic Site ICD-O-3 Code",
+      "count": 8
+    },
+    {
+      "origin_name": "caDSR",
+      "origin_id": "14596198",
+      "origin_version": "1.00",
+      "value": "Research Activity PDX Implantation Method Type",
+      "count": 8
+    },
+    {
+      "origin_name": "caDSR",
+      "origin_id": "14608595",
+      "origin_version": "1.00",
+      "value": "Imaging Procedure Multiple Spin Echo Indicator",
+      "count": 8
+    },
+    {
+      "origin_name": "caDSR",
+      "origin_id": "14608649",
+      "origin_version": "1.00",
+      "value": "Imaging Procedure Time of Flight Contrast Indicator",
+      "count": 8
+    },
+    {
+      "origin_name": "caDSR",
+      "origin_id": "14612652",
+      "origin_version": "1.00",
+      "value": "Imaging Procedure Saturation Recovery Indicator",
+      "count": 8
+    },
+    {
+      "origin_name": "caDSR",
+      "origin_id": "14616759",
+      "origin_version": "1.00",
+      "value": "Research Activity PDX Tumor Neither Mouse Nor EBV Origin Indicator",
+      "count": 8
+    },
+    {
+      "origin_name": "caDSR",
+      "origin_id": "15235975",
+      "origin_version": "1.00",
+      "value": "Specimen Material Source",
+      "count": 8
+    },
+    {
+      "origin_name": "caDSR",
+      "origin_id": "16323957",
+      "origin_version": "1",
+      "value": "Specimen Preservation Procedure Medium Type",
+      "count": 8
+    },
+    {
+      "origin_name": "caDSR",
+      "origin_id": "6617540",
+      "origin_version": "1",
+      "value": "Person Occupation Category",
+      "count": 8
+    },
+    {
+      "origin_name": "caDSR",
+      "origin_id": "8028962",
+      "origin_version": "3.00",
+      "value": "Specimen Preservation Procedure Type",
+      "count": 8
+    },
+    {
+      "origin_name": "caDSR",
+      "origin_id": "11416926",
+      "origin_version": "2",
+      "value": "Data File Format Type",
+      "count": 7
+    },
+    {
+      "origin_name": "caDSR",
+      "origin_id": "11325685",
+      "origin_version": "1",
+      "value": "Subject Tumor Grade",
+      "count": 6
+    },
+    {
+      "origin_name": "caDSR",
+      "origin_id": "11325685",
+      "origin_version": "2",
+      "value": "Subject Tumor Grade",
+      "count": 6
+    },
+    {
+      "origin_name": "caDSR",
+      "origin_id": "11416926",
+      "origin_version": "2.00",
+      "value": "Data File Format Type",
+      "count": 6
+    },
+    {
+      "origin_name": "caDSR",
+      "origin_id": "11524549",
+      "origin_version": "3",
+      "value": "Study Administration Legal Adult Or Pediatric Study Type",
+      "count": 6
+    },
+    {
+      "origin_name": "caDSR",
+      "origin_id": "12137353",
+      "origin_version": "2.00",
+      "value": "Imaging DICOM Modality Type",
+      "count": 6
+    },
+    {
+      "origin_name": "caDSR",
+      "origin_id": "12137353",
+      "origin_version": "2",
+      "value": "Imaging DICOM Modality Type",
+      "count": 6
+    },
+    {
+      "origin_name": "caDSR",
+      "origin_id": "12445832",
+      "origin_version": "1.00",
+      "value": "Specimen Material Category",
+      "count": 6
+    },
+    {
+      "origin_name": "caDSR",
+      "origin_id": "14688604",
+      "origin_version": "2",
+      "value": "Specimen Source Location Category",
+      "count": 6
+    },
+    {
+      "origin_name": "caDSR",
+      "origin_id": "14824731",
+      "origin_version": "2.00",
+      "value": "Data File Content Category",
+      "count": 6
+    },
+    {
+      "origin_name": "caDSR",
+      "origin_id": "6273393",
+      "origin_version": "2.00",
+      "value": "Molecular Analysis Library Sequencing Technique Type",
+      "count": 6
+    },
+    {
+      "origin_name": "caDSR",
+      "origin_id": "11524549",
+      "origin_version": "3.00",
+      "value": "Study Administration Legal Adult Or Pediatric Study Type",
+      "count": 5
+    },
+    {
+      "origin_name": "caDSR",
+      "origin_id": "13471160",
+      "origin_version": "1.00",
+      "value": "Diagnosis Disease Morphology Category",
+      "count": 5
+    },
+    {
+      "origin_name": "caDSR",
+      "origin_id": "13529783",
+      "origin_version": "2.00",
+      "value": "Disease Progression or Recurrence Indicator",
+      "count": 5
+    },
+    {
+      "origin_name": "caDSR",
+      "origin_id": "14688604",
+      "origin_version": "2.00",
+      "value": "Specimen Source Location Category",
+      "count": 5
+    },
+    {
+      "origin_name": "caDSR",
+      "origin_id": "14902606",
+      "origin_version": "1.00",
+      "value": "Data File Dataset License Type",
+      "count": 5
+    },
+    {
+      "origin_name": "caDSR",
+      "origin_id": "15235981",
+      "origin_version": "1.00",
+      "value": "Specimen Molecule Source",
+      "count": 5
+    },
+    {
+      "origin_name": "caDSR",
+      "origin_id": "15846335",
+      "origin_version": "1",
+      "value": "Study Administration Program Name",
+      "count": 5
+    },
+    {
+      "origin_name": "caDSR",
+      "origin_id": "15846845",
+      "origin_version": "1",
+      "value": "Study Administration Program Short Name",
+      "count": 5
+    },
+    {
+      "origin_name": "caDSR",
+      "origin_id": "16812466",
+      "origin_version": "1.00",
+      "value": "Specimen Nanoparticle Type",
+      "count": 5
+    },
+    {
+      "origin_name": "caDSR",
+      "origin_id": "16812467",
+      "origin_version": "1.00",
+      "value": "Specimen Nanoparticle Functionalizing Entity Type",
+      "count": 5
+    },
+    {
+      "origin_name": "caDSR",
+      "origin_id": "2006475",
+      "origin_version": "2.00",
+      "value": "Individual Genealogy Suffix Code",
+      "count": 5
+    },
+    {
+      "origin_name": "caDSR",
+      "origin_id": "6352164",
+      "origin_version": "2.00",
+      "value": "Equipment Sequencing Model Name",
+      "count": 5
+    },
+    {
+      "origin_name": "caDSR",
+      "origin_id": "11325685",
+      "origin_version": "1.00",
+      "value": "Subject Tumor Grade",
+      "count": 4
+    },
+    {
+      "origin_name": "caDSR",
+      "origin_id": "11475057",
+      "origin_version": "1.00",
+      "value": "Data File Checksum Type",
+      "count": 4
+    },
+    {
+      "origin_name": "caDSR",
+      "origin_id": "13347079",
+      "origin_version": "1.00",
+      "value": "Gene Mutation Clinical Significance Category",
+      "count": 4
+    },
+    {
+      "origin_name": "caDSR",
+      "origin_id": "13381490",
+      "origin_version": "1.00",
+      "value": "Disease Response System Criteria Type",
+      "count": 4
+    },
+    {
+      "origin_name": "caDSR",
+      "origin_id": "14473382",
+      "origin_version": "1.00",
+      "value": "Gene Variant Source Category",
+      "count": 4
+    },
+    {
+      "origin_name": "caDSR",
+      "origin_id": "14576319",
+      "origin_version": "1.00",
+      "value": "Data File Deidentification Method Type",
+      "count": 4
+    },
+    {
+      "origin_name": "caDSR",
+      "origin_id": "14787331",
+      "origin_version": "1.00",
+      "value": "Gene Alteration Region Name",
+      "count": 4
+    },
+    {
+      "origin_name": "caDSR",
+      "origin_id": "15607838",
+      "origin_version": "1.00",
+      "value": "Study Administration Study Status",
+      "count": 4
+    },
+    {
+      "origin_name": "caDSR",
+      "origin_id": "17267800",
+      "origin_version": "1.00",
+      "value": "Gene Genetic Variation Analysis Type",
+      "count": 4
+    },
+    {
+      "origin_name": "caDSR",
+      "origin_id": "17308860",
+      "origin_version": "1.00",
+      "value": "Gene Alteration Location Role Type",
+      "count": 4
+    },
+    {
+      "origin_name": "caDSR",
+      "origin_id": "2867528",
+      "origin_version": "1.00",
+      "value": "Dose Type",
+      "count": 4
+    },
+    {
+      "origin_name": "caDSR",
+      "origin_id": "3457767",
+      "origin_version": "1.00",
+      "value": "Person Self-Report Alcoholic Beverage Exposure Category",
+      "count": 4
+    },
+    {
+      "origin_name": "caDSR",
+      "origin_id": "4783273",
+      "origin_version": "1.00",
+      "value": "Primary Cause of Death Reason Category",
+      "count": 4
+    },
+    {
+      "origin_name": "caDSR",
+      "origin_id": "11416926",
+      "origin_version": "1",
+      "value": "Data File Format Type",
+      "count": 3
+    },
+    {
+      "origin_name": "caDSR",
+      "origin_id": "11524549",
+      "origin_version": "1.00",
+      "value": "Study Administration Legal Adult Or Pediatric Study Type",
+      "count": 3
+    },
+    {
+      "origin_name": "caDSR",
+      "origin_id": "11524549",
+      "origin_version": "1",
+      "value": "Study Administration Legal Adult Or Pediatric Study Type",
+      "count": 3
+    },
+    {
+      "origin_name": "caDSR",
+      "origin_id": "12137353",
+      "origin_version": "1",
+      "value": "Imaging DICOM Modality Type",
+      "count": 3
+    },
+    {
+      "origin_name": "caDSR",
+      "origin_id": "14688604",
+      "origin_version": "1",
+      "value": "Specimen Source Location Category",
+      "count": 3
+    },
+    {
+      "origin_name": "caDSR",
+      "origin_id": "15026558",
+      "origin_version": "1.00",
+      "value": "Diagnosis Disease FAB Classification System Type",
+      "count": 3
+    },
+    {
+      "origin_name": "caDSR",
+      "origin_id": "6352164",
+      "origin_version": "1.00",
+      "value": "Equipment Sequencing Model Name",
+      "count": 3
+    },
+    {
+      "origin_name": "caDSR",
+      "origin_id": "10543100",
+      "origin_version": "2",
+      "value": "Subject Taxonomy NCBI Identifier",
+      "count": 2
+    },
+    {
+      "origin_name": "caDSR",
+      "origin_id": "11160683",
+      "origin_version": "1",
+      "value": "Study Primary Purpose Type",
+      "count": 2
+    },
+    {
+      "origin_name": "caDSR",
+      "origin_id": "11387114",
+      "origin_version": "1",
+      "value": "Data File Compression Status",
+      "count": 2
+    },
+    {
+      "origin_name": "caDSR",
+      "origin_id": "11475057",
+      "origin_version": "1",
+      "value": "Data File Checksum Type",
+      "count": 2
+    },
+    {
+      "origin_name": "caDSR",
+      "origin_id": "12922545",
+      "origin_version": "1.00",
+      "value": "Tumor Classification Category",
+      "count": 2
+    }
+  ]
+}

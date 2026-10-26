@@ -5,6 +5,7 @@ Fetch EDP permissible-value labels from STS and write a sorted JSON snapshot.
 Usage (from project root):
     python scripts/generate_edp_pv_snapshot.py --origin-id CRDC0001 --origin-version 1
     python scripts/generate_edp_pv_snapshot.py --origin-id CRDC0003 --origin-version 3.2
+    python scripts/generate_edp_pv_snapshot.py --origin-id CRDC0008 --origin-version 1
     STS_BASE_URL=https://sts-qa.cancer.gov/v2 python scripts/generate_edp_pv_snapshot.py \\
         --origin-name CRDC --origin-id CRDC0002 --origin-version 1
 

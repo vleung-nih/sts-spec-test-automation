@@ -2,5 +2,8 @@
   "origins": [
     "caDSR",
     "CRDC"
-  ]
+  ],
+  "duplicate_drift_baselines": {
+    "caDSR": "data/baselines/cadsr_edps_508_duplicate_baseline_2026-10-21.json"
+  }
 }
